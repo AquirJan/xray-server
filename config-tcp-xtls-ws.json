@@ -1,0 +1,92 @@
+{
+    "log": {
+        "loglevel": "warning"
+    },
+    "inbounds": [
+        {
+            "port": 8443,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "a0b5b7ba-9116-4db8-97ba-5697b8b8a88e",
+                        "level": 0,
+                        "flow": "xtls-rprx-direct",
+                        "email": "aquirjan@icloud.com"
+                    }
+                ],
+                "decryption": "none",
+                "fallbacks": [
+                    {
+                        "path": "/tcpxray",
+                        "dest": 15645,
+                        "xver": 1
+                    }
+                ]
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "xtls",
+                "xtlsSettings": {
+                    "alpn": [
+                        "http/1.1"
+                    ],
+                    "certificates": [
+                        {
+                            "certificateFile": "/usr/local/etc/xray/fullchain.pem",
+                            "keyFile": "/usr/local/etc/xray/privkey.pem"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "port": 15643,
+            "listen": "127.0.0.1",
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "a0b5b7ba-9116-4db8-97ba-5697b8b8a88e",
+                        "level": 0,
+                        "flow": "xtls-rprx-direct",
+                        "email": "aquirjan@icloud.com"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "ws",
+                "security": "none",
+                "wsSettings": {
+                    "path": "/wsxray"
+                }
+            }
+        }
+    ],
+    "outbounds": [
+        {
+            "protocol": "freedom"
+        }
+    ],
+    "stats": {},
+    "policy": {
+        "levels": {
+            "0": {
+                "handshake": 4,
+                "connIdle": 300,
+                "uplinkOnly": 2,
+                "downlinkOnly": 5,
+                "statsUserUplink": true,
+                "statsUserDownlink": true,
+                "bufferSize": 4
+            }
+        },
+        "system": {
+            "statsInboundUplink": true,
+            "statsInboundDownlink": true,
+            "statsOutboundUplink": true,
+            "statsOutboundDownlink": true
+        }
+    }
+}
