@@ -24,21 +24,22 @@ app.use(bodyParser.urlencoded({
 }));
 
 const {
-    prodPort,
-    port
-} = require('./configs')
-const {
-    loginCtl
+    loginCtl,
+    verifyTokenMiddle,
+    listClientsCtl,
+    addClientCtl
 } = require('./src/controller')
 const { 
-    initAction
+    initAction,
+    getConfigs
 } = require('./src/service')
-const PROJECTNAME = '/autopunch'
+const PROJECTNAME = '/xray'
 
 initAction();
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
+app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
+app.post(`${PROJECTNAME}/addClient`, verifyTokenMiddle, addClientCtl)
 
-
-const _port = ENV === 'production' ? prodPort : port;
-app.listen(_port, () => console.log(`Example app listening on port ${port}!`))
+const _configs = getConfigs()
+app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
