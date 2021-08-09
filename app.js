@@ -27,7 +27,8 @@ const {
     loginCtl,
     verifyTokenMiddle,
     listClientsCtl,
-    addClientCtl
+    putClientCtl,
+    deleteClientCtl
 } = require('./src/controller')
 const { 
     initAction,
@@ -39,7 +40,9 @@ initAction();
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
-app.post(`${PROJECTNAME}/addClient`, verifyTokenMiddle, addClientCtl)
+app.post(`${PROJECTNAME}/addClient`, verifyTokenMiddle, putClientCtl)
+app.post(`${PROJECTNAME}/updateClient`, verifyTokenMiddle, putClientCtl)
+app.post(`${PROJECTNAME}/deleteClient`, verifyTokenMiddle, deleteClientCtl)
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))

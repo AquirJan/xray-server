@@ -2,6 +2,9 @@ const ENV = process.env.NODE_ENV;
 const {
   login,
   listClients,
+  updateClient,
+  deleteClient,
+  addClient,
   verifyToken,
 } = require('./service.js')
 
@@ -45,35 +48,57 @@ async function listClientsCtl(req, res) {
   res.send(_res)
 }
 
-async function addClientCtl(req, res) {
-  const {email, uuid, price, off_date, port, remark, traffic} = req.body
+async function putClientCtl(req, res) {
+  const {id, email, uuid, price, off_date, port, remark, traffic} = req.body
   const _now = new Date()
+  const _port = port ? port : 443;
+  const _traffic = traffic ? traffic : 20;
   let _off_date = off_date ? off_date : new Date(_now.setDate(_now.getDate()+1))
   if (!email) {
     res.send({
       success: false,
-      message: '请输入email'
+      message: '请传入email'
     })
   }
   if (!uuid) {
     res.send({
       success: false,
-      message: '请输入uuid'
+      message: '请传入uuid'
     })
   }
   if (!remark) {
     res.send({
       success: false,
-      message: '请输入remark'
+      message: '请传入remark'
     })
   }
-  const _res = await listClients({email, uuid, price, off_date, port, remark, traffic});
+  let _res = {
+    success: false,
+    message: 'default response'
+  }
+  if (!id) {
+    _res = await addClient({email, uuid, price, off_date: _off_date, port: _port, remark, traffic: _traffic});
+  } else {
+    _res = await updateClient({email, uuid, price, off_date: _off_date, port: _port, remark, traffic: _traffic});
+  }
+  res.send(_res)
+}
+
+async function deleteClientCtl({id}) {
+  if (!id) {
+    res.send({
+      success: false,
+      message: '请输传入id'
+    })
+  }
+  const _res = await deleteClient({id});
   res.send(_res)
 }
 
 exports = module.exports = {
   loginCtl,
-  addClientCtl,
+  putClientCtl,
+  deleteClientCtl,
   verifyTokenMiddle,
   listClientsCtl
 }

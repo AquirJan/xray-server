@@ -76,6 +76,7 @@ const initAction = async function() {
     }
     
 }
+
 function execCommand(command) {
     return new Promise(resolve=>{
         try {
@@ -266,9 +267,41 @@ function verifyToken(_realToken) {
   })
 }
 
+async function addClient({email, uuid, port, off_date, price, traffic}){
+  return new Promise(async resolve=> {
+    let _sql = `INSERT INTO clients
+     ( email, uuid, port, off_date, price, traffic ) 
+     VALUES 
+     ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}' );`
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
+  })
+}
+
+async function updateClient({id, email, uuid, port, off_date, price, traffic}){
+  return new Promise(async resolve=> {
+    let _sql = `update clients set 
+     email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', 
+     price='${price}', traffic='${traffic}' where id=${id};`
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
+  })
+}
+
+async function deleteClient({id}) {
+  return new Promise(async resolve=> {
+    let _sql = `delete from clients where id=${id};`
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
+  })
+}
+
 exports = module.exports = {
     // 初始化
     listClients,
+    deleteClient,
+    addClient,
+    updateClient,
     verifyToken,
     initAction,
     getConfigs,
