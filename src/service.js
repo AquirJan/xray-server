@@ -358,7 +358,11 @@ async function statisticTraffic() {
     console.log(_obj)
     // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
     let _sql = ['update clients set']
+    let _up_statements = ['up=(']
     _obj.forEach(val => {
+      if (val.direction.match(/up/gi)) {
+
+      }
       _sql.push(``)
     })
     _sql = _sql.join(' ')+';'
