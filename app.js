@@ -30,13 +30,16 @@ const {
     putClientCtl,
     deleteClientCtl
 } = require('./src/controller')
-const { 
+const {
+    statisticTraffic,
     initAction,
     getConfigs
 } = require('./src/service')
 const PROJECTNAME = '/xray'
 
 initAction();
+
+statisticTraffic()
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)

@@ -38,7 +38,11 @@ const opts = {
 const logger = require('simple-node-logger').createRollingFileLogger( opts );
 
 function getConfigs() {
-    return ENV === 'production' ? prod : dev;
+  return ENV === 'production' ? prod : dev;
+}
+
+function isDevEnv() {
+  return ENV !== 'production';
 }
 
 const initAction = async function() {
@@ -82,7 +86,12 @@ function execCommand(command) {
         try {
             exec(command, (error, stdout, stderr) => {
                 if (error) {
-                    console.error(`exec error: ${error}`);
+                    // console.error(`exec error: ${error}`);
+                    resolve({
+                      success: false,
+                      data: error,
+                      message: `exec command failure`
+                    })
                     return;
                 }
                 if (stdout) {
@@ -267,22 +276,30 @@ function verifyToken(_realToken) {
   })
 }
 
-async function addClient({email, uuid, port, off_date, price, traffic}){
+async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
     let _sql = `INSERT INTO clients
-     ( email, uuid, port, off_date, price, traffic ) 
+     ( email, uuid, port, off_date, price, traffic, remark ) 
      VALUES 
-     ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}' );`
+     ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
 }
 
-async function updateClient({id, email, uuid, port, off_date, price, traffic}){
+async function updateClient({id, email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
     let _sql = `update clients set 
      email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', 
-     price='${price}', traffic='${traffic}' where id=${id};`
+     price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
+  })
+}
+
+async function detectDuplicateAccount({email, uuid}){
+  return new Promise(async resolve=> {
+    let _sql = `select * from clients where email='${email}' or uuid='${uuid}';`
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
@@ -296,8 +313,64 @@ async function deleteClient({id}) {
   })
 }
 
+async function statisticTraffic() {
+  return new Promise(async resolve=> {
+    if (!isDevEnv()) {
+      const {success, data} = await execCommand('xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json')
+      if (!success) {
+        resolve({
+          success: false,
+          data,
+          message: '统计命令执行出错'
+        })
+      }
+    }
+    const _xray_statistic_file = path.resolve('xray-statics.json');
+    if (!fs.existsSync(_xray_statistic_file)) {
+      resolve({
+        success: false,
+        message: 'xray-statics.json 统计文件不存在'
+      })
+    }
+    const _statObj = require(_xray_statistic_file)
+    console.log(_statObj)
+    if (!_statObj.stat) {
+      resolve({
+        success: false,
+        message: 'xray-statics.json 统计文件异常【miss stat field】'
+      })
+    }
+    let _obj = _statObj.stat.map(val => {
+      if (val.name && val.name.match(/user/gi) && val.value) {
+        let _name_array = val.name.split('>>>')
+        let _email = _name_array[1]
+        let _direction = _name_array[3]
+        let _tmpObj = {
+          email: _email,
+          direction: _direction,
+          value: val.value
+        }
+        // _tmpObj[_direction] = val.value
+        return _tmpObj
+      }
+    })
+    _obj = _obj.filter(val=>val!==undefined)
+    console.log(_obj)
+    // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
+    let _sql = ['update clients set']
+    _obj.forEach(val => {
+      _sql.push(``)
+    })
+    _sql = _sql.join(' ')+';'
+    // const _res = await mysqlPromise(_sql)
+    // resolve(_res)
+  })
+}
+
 exports = module.exports = {
     // 初始化
+    statisticTraffic,
+    detectDuplicateAccount,
     listClients,
     deleteClient,
     addClient,
@@ -305,6 +378,7 @@ exports = module.exports = {
     verifyToken,
     initAction,
     getConfigs,
+    isDevEnv,
     getRandomIntInclusive,
     sleep,
     login

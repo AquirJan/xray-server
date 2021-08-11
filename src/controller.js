@@ -6,6 +6,8 @@ const {
   deleteClient,
   addClient,
   verifyToken,
+  detectDuplicateAccount,
+  isDevEnv,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -27,12 +29,16 @@ async function loginCtl(req, res) {
 }
 
 async function verifyTokenMiddle(req, res, next) {
-  const token = req.headers.token;
-  const _res = await verifyToken(token)
-  if (_res.success) {
+  if (isDevEnv()){
     next()
   } else {
-    res.send(_res)
+    const token = req.headers.token;
+    const _res = await verifyToken(token)
+    if (_res.success) {
+      next()
+    } else {
+      res.send(_res)
+    }
   }
 }
 
@@ -52,8 +58,9 @@ async function putClientCtl(req, res) {
   const {id, email, uuid, price, off_date, port, remark, traffic} = req.body
   const _now = new Date()
   const _port = port ? port : 443;
+  const _price = price ? price : 20;
   const _traffic = traffic ? traffic : 20;
-  let _off_date = off_date ? off_date : new Date(_now.setDate(_now.getDate()+1))
+  let _off_date = off_date ? off_date : new Date(_now.setDate(_now.getDate()+1)).format('yyyy/MM/dd hh:mm:ss')
   if (!email) {
     res.send({
       success: false,
@@ -76,15 +83,30 @@ async function putClientCtl(req, res) {
     success: false,
     message: 'default response'
   }
-  if (!id) {
-    _res = await addClient({email, uuid, price, off_date: _off_date, port: _port, remark, traffic: _traffic});
+  const _obj = {email, uuid, remark, price: _price, off_date: _off_date, port: _port,  traffic: _traffic}
+  if (id) {
+    _obj['id'] = id;
+    _res = await updateClient(_obj);
+    _res['message'] = _res.success ? '更新成功' : '更新失败'
   } else {
-    _res = await updateClient({email, uuid, price, off_date: _off_date, port: _port, remark, traffic: _traffic});
+    _res = await detectDuplicateAccount({email, uuid})
+    if (_res.success) {
+      if (_res.data && _res.data.length) {
+        _res = {
+          success: false,
+          message: '该email账号或uuid已存在'
+        }
+      } else {
+        _res = await addClient(_obj);
+        _res['message'] = _res.success ? '添加成功' : '添加失败'
+      }
+    }
   }
   res.send(_res)
 }
 
-async function deleteClientCtl({id}) {
+async function deleteClientCtl(req, res) {
+  const {id} = req.body;
   if (!id) {
     res.send({
       success: false,
@@ -92,6 +114,7 @@ async function deleteClientCtl({id}) {
     })
   }
   const _res = await deleteClient({id});
+  _res['message'] = _res.success ? '删除成功' : '删除失败'
   res.send(_res)
 }
 
