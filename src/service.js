@@ -28,14 +28,8 @@ const {
   prod
 } = require('../configs.js')
 // const nodelogger = require('node-logger')
-const opts = {
-    timestampFormat:'YYYY-MM-DD HH:mm:ss.SSS',
-    errorEventName:'error',
-    logDirectory: path.resolve(LOGFOLDER), // NOTE: folder must exist and be writable...
-    fileNamePattern:'<DATE>.log',
-    dateFormat:'YYYY-MM-DD'
-};
-const logger = require('simple-node-logger').createRollingFileLogger( opts );
+
+let logger = undefined;
 
 function getConfigs() {
   return ENV === 'production' ? prod : dev;
@@ -47,8 +41,16 @@ function isDevEnv() {
 
 const initAction = async function() {
     if (!fs.existsSync(path.resolve(LOGFOLDER))) {
-        fs.mkdirSync(path.resolve(LOGFOLDER))
+      fs.mkdirSync(path.resolve(LOGFOLDER))
     }
+    const opts = {
+      timestampFormat:'YYYY-MM-DD HH:mm:ss.SSS',
+      errorEventName:'error',
+      logDirectory: path.resolve(LOGFOLDER), // NOTE: folder must exist and be writable...
+      fileNamePattern:'<DATE>.log',
+      dateFormat:'YYYY-MM-DD'
+    };
+    logger = require('simple-node-logger').createRollingFileLogger( opts );
     // 每日任务
     schedule.scheduleJob('0 0 6 * * *', ()=>{
       logger.info('每日任务')
@@ -278,10 +280,9 @@ function verifyToken(_realToken) {
 
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
-    let _sql = `INSERT INTO clients
-     ( email, uuid, port, off_date, price, traffic, remark ) 
-     VALUES 
-     ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
+    console.log(off_date)
+    let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
+     console.log(_sql)
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
@@ -289,9 +290,7 @@ async function addClient({email, uuid, port, off_date, price, traffic, remark}){
 
 async function updateClient({id, email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
-    let _sql = `update clients set 
-     email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', 
-     price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
+    let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
@@ -333,7 +332,6 @@ async function statisticTraffic() {
       })
     }
     const _statObj = require(_xray_statistic_file)
-    console.log(_statObj)
     if (!_statObj.stat) {
       resolve({
         success: false,
@@ -355,25 +353,53 @@ async function statisticTraffic() {
       }
     })
     _obj = _obj.filter(val=>val!==undefined)
-    console.log(_obj)
     // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
-    let _sql = ['update clients set']
-    let _up_statements = ['up=(']
+    let _down_statements = []
+    let _up_statements = []
+    let _emails = []
     _obj.forEach(val => {
       if (val.direction.match(/up/gi)) {
-
+        _up_statements.push(`when email = '${val.email}' then up+${val.value}`)
       }
-      _sql.push(``)
+      if (val.direction.match(/down/gi)) {
+        _down_statements.push(`when email = '${val.email}' then down+${val.value}`)
+      }
+      _emails.push(`'${val.email}'`)
     })
-    _sql = _sql.join(' ')+';'
-    // const _res = await mysqlPromise(_sql)
-    // resolve(_res)
+    _emails = `email in(${Array.from(new Set(_emails)).join(',')})`
+    _up_statements = `up=( case ${_up_statements.join(' ')} end )`
+    _down_statements = `down=( case ${_down_statements.join(' ')} end )`
+    let _setColumns = [_up_statements, _down_statements].join(',')
+    let _sql = `update clients set ${_setColumns} where ${_emails};`
+    logger.info('更新流量数据')
+    logger.info(_sql)
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
+  })
+}
+
+function resetTraffic({email, id}) {
+  return new Promise(async resolve => {
+    if (!isDevEnv()) {
+      const {success, data} = await execCommand(`xray api statsquery --server=127.0.0.1:10088 -pattern "${email}" -reset`)
+      if (!success) {
+        resolve({
+          success: false,
+          data,
+          message: '统计命令执行出错'
+        })
+      }
+    }
+    let _sql = `update clients set up=0, down=0 where email='${email}' and id=${id};`
+    const _res = await mysqlPromise(_sql)
+    resolve(_res)
   })
 }
 
 exports = module.exports = {
     // 初始化
     statisticTraffic,
+    resetTraffic,
     detectDuplicateAccount,
     listClients,
     deleteClient,

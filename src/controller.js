@@ -8,6 +8,8 @@ const {
   verifyToken,
   detectDuplicateAccount,
   isDevEnv,
+  statisticTraffic,
+  resetTraffic,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -118,10 +120,43 @@ async function deleteClientCtl(req, res) {
   res.send(_res)
 }
 
+async function updateTrafficCtl(req, res) {
+  const {success, data, message} = await statisticTraffic()
+  res.send({
+    success,
+    data,
+    message: success ? '更新流量成功' : '更新流量失败'
+  })
+}
+
+async function resetTrafficCtl(req, res) {
+  const {email, id} = req.body
+  if (!id) {
+    res.send({
+      success: false,
+      message: '用户id丢失'
+    })
+  }
+  if (!email) {
+    res.send({
+      success: false,
+      message: '请输传入email'
+    })
+  }
+  const {success, data, message} = await resetTraffic({email, id})
+  res.send({
+    success,
+    data,
+    message: success ? '重置流量成功' : '重置流量失败'
+  })
+}
+
 exports = module.exports = {
   loginCtl,
   putClientCtl,
   deleteClientCtl,
   verifyTokenMiddle,
-  listClientsCtl
+  listClientsCtl,
+  updateTrafficCtl,
+  resetTrafficCtl
 }

@@ -28,10 +28,11 @@ const {
     verifyTokenMiddle,
     listClientsCtl,
     putClientCtl,
-    deleteClientCtl
+    deleteClientCtl,
+    updateTrafficCtl,
+    resetTrafficCtl
 } = require('./src/controller')
 const {
-    statisticTraffic,
     initAction,
     getConfigs
 } = require('./src/service')
@@ -39,13 +40,13 @@ const PROJECTNAME = '/xray'
 
 initAction();
 
-statisticTraffic()
-
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
 app.post(`${PROJECTNAME}/addClient`, verifyTokenMiddle, putClientCtl)
 app.post(`${PROJECTNAME}/updateClient`, verifyTokenMiddle, putClientCtl)
 app.post(`${PROJECTNAME}/deleteClient`, verifyTokenMiddle, deleteClientCtl)
+app.post(`${PROJECTNAME}/updateTraffic`, verifyTokenMiddle, updateTrafficCtl)
+app.post(`${PROJECTNAME}/resetTraffic`, verifyTokenMiddle, resetTrafficCtl)
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
