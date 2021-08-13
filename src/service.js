@@ -52,10 +52,10 @@ const initAction = async function() {
     };
     logger = require('simple-node-logger').createRollingFileLogger( opts );
     // 每日任务
-    schedule.scheduleJob('0 0 6 * * *', ()=>{
-      logger.info('每日任务')
-      autoDeleteLog()
-    });
+    // schedule.scheduleJob('0 0 9 * * *', ()=>{
+    //   logger.info('每日任务')
+    //   autoDeleteLog()
+    // });
     autoDeleteLog()
     
     // console.log('连接数据库')
@@ -105,7 +105,8 @@ function execCommand(command) {
                 } else {
                     resolve({
                         success: false,
-                        message: `exec command failure`
+                        data: stdout,
+                        message: `exec command failure, miss stdout`
                     })
                 }
             });
@@ -177,7 +178,7 @@ function listClients({page, size, conditions}) {
           if (_sql.length === 1) {
             _sql.push('where')
           } else {
-            _sql.push('and')
+            _sql.push('or')
           }
           _sql.push(`${key} like '%${conditions[key]}%'`)
         }
@@ -185,6 +186,7 @@ function listClients({page, size, conditions}) {
     }
     _sql.push(`order by create_time desc limit ${size} offset ${(page-1)*size};`)
     _sql = _sql.join(' ')
+    // console.log(_sql)
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
@@ -317,6 +319,7 @@ async function statisticTraffic() {
     if (!isDevEnv()) {
       const {success, data} = await execCommand('xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json')
       if (!success) {
+        logger.info('统计命令执行出错'+JSON.stringify(data))
         resolve({
           success: false,
           data,
@@ -326,6 +329,7 @@ async function statisticTraffic() {
     }
     const _xray_statistic_file = path.resolve('xray-statics.json');
     if (!fs.existsSync(_xray_statistic_file)) {
+      logger.info(`xray-statics.json 统计文件不存在`)
       resolve({
         success: false,
         message: 'xray-statics.json 统计文件不存在'
@@ -333,6 +337,7 @@ async function statisticTraffic() {
     }
     const _statObj = require(_xray_statistic_file)
     if (!_statObj.stat) {
+      logger.info(`xray-statics.json 统计文件异常【miss stat field】`)
       resolve({
         success: false,
         message: 'xray-statics.json 统计文件异常【miss stat field】'
@@ -383,10 +388,11 @@ function resetTraffic({email, id}) {
     if (!isDevEnv()) {
       const {success, data} = await execCommand(`xray api statsquery --server=127.0.0.1:10088 -pattern "${email}" -reset`)
       if (!success) {
+        logger.info(`重置流量命令执行出错`)
         resolve({
           success: false,
           data,
-          message: '统计命令执行出错'
+          message: '重置流量命令执行出错'
         })
       }
     }
@@ -396,8 +402,197 @@ function resetTraffic({email, id}) {
   })
 }
 
+function restartService() {
+  return new Promise(async resolve => {
+    try {
+      if (!isDevEnv()) {
+        const _res_backupConfigFile = await backupConfigFile()
+        if (!_res_backupConfigFile.success) {
+          resolve(_res_backupConfigFile)
+        }
+        const _res_recombine = await recombineConfigFile()
+        if (!_res_recombine.success) {
+          resolve(_res_recombine)
+        }
+        const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
+        if (!_res_changeConfig.success) {
+          resolve(_res_changeConfig)
+        }
+        const {success, data} = await execCommand(`systemctl restart xray`)
+        if (!success) {
+          logger.info('重启服务命令执行出错')
+          resolve({
+            success: false,
+            data,
+            message: '重启服务命令执行出错'
+          })
+        }
+      }
+      resolve({
+        success: true,
+        message: '重启服务成功'
+      })
+    } catch(e) {
+      logger.info('重启服务catch异常')
+      logger.info(JSON.stringify(e))
+      resolve({
+        success: false,
+        data: e,
+        message: '重启服务catch异常'
+      })
+    }
+  })
+}
+
+function setDailySchedule() {
+  try {
+    schedule.scheduleJob('0 0 8 * * *',  ()=>{
+      logger.info('每日任务')
+      dailySchedule();
+      //删除日志文件
+      autoDeleteLog();
+    });
+    schedule.scheduleJob('0 0 */2 * * *',  ()=>{
+      logger.info('统计流量计划任务')
+      statisticTraffic()
+    });
+  } catch(e) {
+    logger.info(`error dailyScheduleAction ${JSON.stringify(e)}`)
+  }
+}
+
+function dailySchedule() {
+  return new Promise(async resolve => {
+    try {
+      if (!isDevEnv()) {
+        const _res_backupDataBase = await backupDataBase()
+        if (!_res_backupDataBase.success) {
+          resolve(_res_backupDataBase)
+        }
+        const _res_statisticTraffic = await statisticTraffic()
+        if (!_res_statisticTraffic.success) {
+          resolve(_res_statisticTraffic)
+        }
+        const _res_restartService = await restartService()
+        if (!_res_restartService.success) {
+          resolve(_res_restartService)
+        }
+      }
+      resolve({
+        success: true,
+        message: '每日任务执行成功'
+      })
+    } catch(e) {
+      resolve({
+        success: false,
+        data: e,
+        message: '每日任务catch异常'
+      })
+    }
+  })
+}
+
+function backupDataBase(){
+  return new Promise(async resolve => {
+    const {database} = getConfigs()
+    const {success, data, message} = await execCommand(`mysqldump -u ${database.user} -p ${database.password} ${database.database} > ${database.database}_backup.sql`)
+    console.log(message)
+    resolve({
+      success,
+      data,
+      message: success ? '备份数据库成功' : '备份数据库出错: '+ message
+    })
+  })
+}
+
+function backupConfigFile(){
+  return new Promise(async resolve => {
+    let _path = `/usr/local/etc/xray/config.json`
+    if (isDevEnv()) {
+      _path = './xray-config.json'
+    }
+    const _configFile = path.resolve(_path)
+    if (!fs.existsSync(_configFile)){
+      resolve({
+        success: false,
+        message: '需要备份的配置文件不存在'
+      })
+    }
+    const {success, data, message} = await execCommand(`cp ${_path} ./xray-config_backup.json`)
+    resolve({
+      success,
+      data,
+      message: success ? '备份配置文件成功' : '备份配置文件出错: '+message
+    })
+  })
+}
+
+function recombineConfigFile() {
+  return new Promise(async resolve => {
+    const _tplConfig = path.resolve('xray-config-template.json');
+    if (!fs.existsSync(_tplConfig)) {
+      logger.info(`模板配置文件丢失`)
+      resolve({
+        success: false,
+        message: '模板配置文件丢失'
+      })
+    }
+    
+    let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
+    const {success, data} = await mysqlPromise(_sql)
+    if (!success) {
+      logger.info(`查询可用账号出错`)
+      resolve({
+        success,
+        message: '查询可用账号出错'
+      })
+    }
+    if (!data || !data.length) {
+      resolve({
+        success,
+        message: '没有可用账号'
+      })
+    }
+    let _clients = data.map(val => {
+      return {
+        "id": val.uuid,
+        "level": 0,
+        "flow": "xtls-rprx-direct",
+        "email": val.email
+      }
+    })
+    let _configObj = require(_tplConfig)
+    _configObj.inbounds[0].settings['clients'] = _clients
+    fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
+    resolve({
+      success: true,
+      message: '重组配置文件成功'
+    })
+  })
+}
+
+function addUser({name, password}) {
+  return new Promise(async resolve => {
+    try {
+      let _sql = `insert into users ( name, passwd ) VALUES ( '${name}', '${password}' );`
+      const {success, data} = await mysqlPromise(_sql)
+      resolve({
+        success,
+        data,
+        message: success ? '添加用户成功' : '添加用户失败'
+      })
+    } catch(err) {
+      resolve({
+        success: false,
+        data: err,
+        message: '添加用户catch异常'
+      })
+    }
+  })
+}
+
 exports = module.exports = {
-    // 初始化
+    restartService,
     statisticTraffic,
     resetTraffic,
     detectDuplicateAccount,
@@ -411,5 +606,10 @@ exports = module.exports = {
     isDevEnv,
     getRandomIntInclusive,
     sleep,
+    backupConfigFile,
+    backupDataBase,
+    recombineConfigFile,
+    setDailySchedule,
+    addUser,
     login
 }

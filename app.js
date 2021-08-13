@@ -30,15 +30,20 @@ const {
     putClientCtl,
     deleteClientCtl,
     updateTrafficCtl,
-    resetTrafficCtl
+    resetTrafficCtl,
+    restartServiceCtl,
+    testActionCtl,
+    putUserCtl
 } = require('./src/controller')
 const {
     initAction,
-    getConfigs
+    getConfigs,
+    setDailySchedule
 } = require('./src/service')
 const PROJECTNAME = '/xray'
 
 initAction();
+setDailySchedule()
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
@@ -47,6 +52,9 @@ app.post(`${PROJECTNAME}/updateClient`, verifyTokenMiddle, putClientCtl)
 app.post(`${PROJECTNAME}/deleteClient`, verifyTokenMiddle, deleteClientCtl)
 app.post(`${PROJECTNAME}/updateTraffic`, verifyTokenMiddle, updateTrafficCtl)
 app.post(`${PROJECTNAME}/resetTraffic`, verifyTokenMiddle, resetTrafficCtl)
+app.post(`${PROJECTNAME}/restartService`, verifyTokenMiddle, restartServiceCtl)
+app.post(`${PROJECTNAME}/addUser`, putUserCtl)
+app.post(`${PROJECTNAME}/testAction`, testActionCtl)
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))

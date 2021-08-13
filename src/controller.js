@@ -10,6 +10,11 @@ const {
   isDevEnv,
   statisticTraffic,
   resetTraffic,
+  restartService,
+  backupConfigFile,
+  backupDataBase,
+  recombineConfigFile,
+  addUser,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -47,7 +52,7 @@ async function verifyTokenMiddle(req, res, next) {
 async function listClientsCtl(req, res) {
   const {page, size, conditions} = req.body;
   const _page = page ? page : 1
-  const _size = size ? size : 10
+  const _size = size ? size : 30
   let _conditions = undefined
   if (conditions && conditions.constructor === Object) {
     _conditions = conditions
@@ -151,12 +156,45 @@ async function resetTrafficCtl(req, res) {
   })
 }
 
+async function restartServiceCtl(req, res) {
+  const _res = await restartService()
+  res.send(_res)
+}
+
+async function testActionCtl(req, res) {
+  // const _res = await backupConfigFile()
+  // const _res = await backupDataBase()
+  const _res = await recombineConfigFile()
+  res.send(_res)
+}
+
+async function putUserCtl(req, res) {
+  const {name, password} = req.body;
+  if (!name) {
+    res.send({
+      success: false,
+      message: '请传入name'
+    })
+  }
+  if (!password) {
+    res.send({
+      success: false,
+      message: '请传入password'
+    })
+  }
+  const _res = await addUser({name, password})
+  res.send(_res)
+}
+
 exports = module.exports = {
   loginCtl,
+  restartServiceCtl,
   putClientCtl,
   deleteClientCtl,
   verifyTokenMiddle,
   listClientsCtl,
   updateTrafficCtl,
-  resetTrafficCtl
+  resetTrafficCtl,
+  testActionCtl,
+  putUserCtl
 }

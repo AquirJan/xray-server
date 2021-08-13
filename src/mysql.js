@@ -79,7 +79,8 @@ function queryPromise(_sql) {
           // console.log('数据出错')
           resolve({
             success: false,
-            data: err
+            data: err,
+            message: 'mysql query error'
           })
         }
         // console.log('数据返回')
@@ -93,7 +94,8 @@ function queryPromise(_sql) {
       // console.log('连接数据库出错', e)
       resolve({
         success: false,
-        data: e
+        data: e,
+        message: 'mysql catch query error'
       })
     }
   })

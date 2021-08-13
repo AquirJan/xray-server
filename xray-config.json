@@ -8,7 +8,26 @@
             "listen": "127.0.0.1",
             "protocol": "vless",
             "settings": {
-                "clients": [],
+                "clients": [
+                    {
+                        "id": "863444e0-fb50-11eb-beca-bb10ef2a8232",
+                        "level": 0,
+                        "flow": "xtls-rprx-direct",
+                        "email": "wing.free0@gmail.com"
+                    },
+                    {
+                        "id": "c2be29d0-fb50-11eb-b223-c5edc6aaab1d",
+                        "level": 0,
+                        "flow": "xtls-rprx-direct",
+                        "email": "wing.free1@gmail.com"
+                    },
+                    {
+                        "id": "ed38cc10-fb50-11eb-b223-c5edc6aaab1d",
+                        "level": 0,
+                        "flow": "xtls-rprx-direct",
+                        "email": "aquirjan@icloud.com"
+                    }
+                ],
                 "decryption": "none"
             },
             "streamSettings": {
