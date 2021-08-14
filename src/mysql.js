@@ -1,5 +1,5 @@
 const mysql = require('mysql');
-const path = require('path')
+const path = require('path');
 const {
   prod,
   dev
@@ -15,7 +15,7 @@ function connectDB(configs) {
           message:  `已有数据库连接`
         })
       }
-      let dbSet = configs !== undefined ? configs : (process.env.NODE_ENV === 'prodction' ? prod.database : dev.database)
+      let dbSet = configs !== undefined ? configs : (process.env.NODE_ENV === 'production' ? prod.database : dev.database)
       if (!dbSet) {
         resolve({
           success: false,
@@ -28,7 +28,7 @@ function connectDB(configs) {
         message:  `连接数据库成功`
       })
     } catch(e) {
-      // console.log('连接数据库出错', e)
+      console.log('连接数据库出错', e)
       resolve({
         success: false,
         data: e,

@@ -69,7 +69,7 @@ const initAction = async function() {
     };
     await connectDB(_fdbset)
     const _cdbres = await queryPromise(CREATEDBSQL)
-
+    // console.log(_cdbres)
     logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
     await closeDB()
     const _resSheet = await connectDB()
@@ -77,6 +77,9 @@ const initAction = async function() {
         for (let i = 0; i < INITSQLS.length; i++) {
             const _res = await queryPromise(INITSQLS[i])
             logger.info(`执行自动创建${i}表${_res.success?'成功':'失败:'+JSON.stringify(_res.data)}`)
+            if (!_res.success) {
+              break;
+            }
         }
         await closeDB()
     }
@@ -611,5 +614,6 @@ exports = module.exports = {
     recombineConfigFile,
     setDailySchedule,
     addUser,
-    login
+    login,
+    logger
 }

@@ -12,8 +12,8 @@ exports = module.exports = {
   prod: {
     database: {
       host     : '127.0.0.1',
-      user     : 'root',
-      password : '?lG2FlOp0LUh',
+      user     : 'aquirjan',
+      password : '#kiWYn.36@kK',
       database : 'vpndb',
       port : 3306
     },
