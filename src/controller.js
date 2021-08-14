@@ -130,7 +130,7 @@ async function updateTrafficCtl(req, res) {
   res.send({
     success,
     data,
-    message: success ? '更新流量成功' : '更新流量失败'
+    message: success ? '更新流量成功' : '更新流量失败: '+message
   })
 }
 
@@ -170,6 +170,7 @@ async function testActionCtl(req, res) {
 
 async function putUserCtl(req, res) {
   const {name, password} = req.body;
+  console.log(name, password)
   if (!name) {
     res.send({
       success: false,
@@ -183,6 +184,7 @@ async function putUserCtl(req, res) {
     })
   }
   const _res = await addUser({name, password})
+  console.log(_res)
   res.send(_res)
 }
 

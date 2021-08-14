@@ -87,39 +87,29 @@ const initAction = async function() {
 }
 
 function execCommand(command) {
-    return new Promise(resolve=>{
-        try {
-            exec(command, (error, stdout, stderr) => {
-                if (error) {
-                    // console.error(`exec error: ${error}`);
-                    resolve({
-                      success: false,
-                      data: error,
-                      message: `exec command failure`
-                    })
-                    return;
-                }
-                if (stdout) {
-                    // fs.writeFileSync(path.resolve('pm2list.txt'), stdout, {encoding: 'utf-8'})
-                    resolve({
-                        success: true,
-                        message: `exec command success`
-                    })
-                } else {
-                    resolve({
-                        success: false,
-                        data: stdout,
-                        message: `exec command failure, miss stdout`
-                    })
-                }
-            });
-        } catch(err) {
-            resolve({
-                success: false,
-                message: `error : ${JSON.stringify(err)}`
-            })
+  return new Promise(resolve=>{
+    try {
+      exec(command, (error, stdout, stderr) => {
+        if (error) {
+          // console.error(`exec error: ${error}`);
+          resolve({
+            success: false,
+            data: error,
+            message: `exec command failure`
+          })
         }
-    })
+        resolve({
+          success: true,
+          message: `exec command success`
+        })
+      });
+    } catch(err) {
+      resolve({
+        success: false,
+        message: `error : ${JSON.stringify(err)}`
+      })
+    }
+  })
 }
 
 function getRandomIntInclusive(min, max) {
@@ -216,9 +206,10 @@ function login({name, password}) {
     const _user = data[0];
     if (password === _user.passwd) {
       const _matchUserIndex = findOutToken(name)
-      if (_matchUserIndex) {
+      if (_matchUserIndex !== undefined) {
         // 触发单点登陆/另一台机器登陆/删除匹配信息
-        // console.log('触发单点登陆/另一台机器登陆/删除匹配信息')
+        console.log('触发单点登陆/另一台机器登陆/删除匹配信息')
+        logger.info('触发单点登陆/另一台机器登陆/删除匹配信息')
         Tokens.splice(_matchUserIndex, 1)
       } 
       const _offtime = (new Date()).getTime() + 86400 * 1000 * 2 // token有效期2天
@@ -320,30 +311,30 @@ async function deleteClient({id}) {
 async function statisticTraffic() {
   return new Promise(async resolve=> {
     if (!isDevEnv()) {
-      const {success, data} = await execCommand('xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json')
+      const {success, data, message} = await execCommand('xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json')
       if (!success) {
-        logger.info('统计命令执行出错'+JSON.stringify(data))
+        logger.info('统计命令执行出错: [ '+message+' ] '+JSON.stringify(data))
         resolve({
           success: false,
           data,
-          message: '统计命令执行出错'
+          message: '统计命令执行出错: '+message
         })
       }
     }
-    const _xray_statistic_file = path.resolve('xray-statics.json');
+    const _xray_statistic_file = path.resolve('xray-stats.json');
     if (!fs.existsSync(_xray_statistic_file)) {
-      logger.info(`xray-statics.json 统计文件不存在`)
+      logger.info(`xray-stats.json 统计文件不存在`)
       resolve({
         success: false,
-        message: 'xray-statics.json 统计文件不存在'
+        message: 'xray-stats.json 统计文件不存在'
       })
     }
     const _statObj = require(_xray_statistic_file)
     if (!_statObj.stat) {
-      logger.info(`xray-statics.json 统计文件异常【miss stat field】`)
+      logger.info(`xray-stats.json 统计文件异常【miss stat field】`)
       resolve({
         success: false,
-        message: 'xray-statics.json 统计文件异常【miss stat field】'
+        message: 'xray-stats.json 统计文件异常【miss stat field】'
       })
     }
     let _obj = _statObj.stat.map(val => {
@@ -576,14 +567,27 @@ function recombineConfigFile() {
 
 function addUser({name, password}) {
   return new Promise(async resolve => {
+    console.log(1111)
     try {
-      let _sql = `insert into users ( name, passwd ) VALUES ( '${name}', '${password}' );`
-      const {success, data} = await mysqlPromise(_sql)
-      resolve({
-        success,
-        data,
-        message: success ? '添加用户成功' : '添加用户失败'
-      })
+      const _res = await mysqlPromise(`select * from users where name='${name}';`);
+      if (_res.success) {
+        if (_res.data && _res.data.length) {
+          resolve({
+            success: false,
+            message: '该账号已存在'
+          })
+        } else {
+          let _sql = `insert into users ( name, passwd ) VALUES ( '${name}', '${password}' );`
+          const {success, data} = await mysqlPromise(_sql)
+          resolve({
+            success,
+            data,
+            message: success ? '添加用户成功' : '添加用户失败'
+          })
+        }
+      } else {
+        resolve(_res)
+      }
     } catch(err) {
       resolve({
         success: false,
@@ -614,6 +618,5 @@ exports = module.exports = {
     recombineConfigFile,
     setDailySchedule,
     addUser,
-    login,
-    logger
+    login
 }
