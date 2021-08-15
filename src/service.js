@@ -6,7 +6,7 @@ const INITSQLS = [
 const CREATEDBSQL = "create database if not exists `vpndb`;"
 
 const io = require("socket.io-client");
-const { exec } = require('child_process');
+const { exec, execSync } = require('child_process');
 const {mergeDeep} = require('./util')
 
 const {
@@ -100,6 +100,10 @@ function execCommand(command) {
         }
         resolve({
           success: true,
+          data: {
+            stdout,
+            stderr
+          },
           message: `exec command success`
         })
       });
@@ -399,33 +403,26 @@ function resetTraffic({email, id}) {
 function restartService() {
   return new Promise(async resolve => {
     try {
-      if (!isDevEnv()) {
-        const _res_backupConfigFile = await backupConfigFile()
-        if (!_res_backupConfigFile.success) {
-          resolve(_res_backupConfigFile)
-        }
-        const _res_recombine = await recombineConfigFile()
-        if (!_res_recombine.success) {
-          resolve(_res_recombine)
-        }
-        const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
-        if (!_res_changeConfig.success) {
-          resolve(_res_changeConfig)
-        }
-        const {success, data} = await execCommand(`systemctl restart xray`)
-        if (!success) {
-          logger.info('重启服务命令执行出错')
-          resolve({
-            success: false,
-            data,
-            message: '重启服务命令执行出错'
-          })
-        }
+      const _res_backupConfigFile = await backupConfigFile()
+      if (!_res_backupConfigFile.success) {
+        resolve(_res_backupConfigFile)
       }
-      resolve({
-        success: true,
-        message: '重启服务成功'
-      })
+      const _res_recombine = await recombineConfigFile()
+      if (!_res_recombine.success) {
+        resolve(_res_recombine)
+      }
+      if (!isDevEnv()) {
+        const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
+        resolve(_res_changeConfig)
+        if (_res_changeConfig.success) {
+          execCommand(`systemctl restart xray`)
+        }
+      } else {
+        resolve({
+          success: true,
+          message: '重启服务成功'
+        })
+      }
     } catch(e) {
       logger.info('重启服务catch异常')
       logger.info(JSON.stringify(e))
@@ -458,24 +455,24 @@ function setDailySchedule() {
 function dailySchedule() {
   return new Promise(async resolve => {
     try {
-      if (!isDevEnv()) {
-        const _res_backupDataBase = await backupDataBase()
-        if (!_res_backupDataBase.success) {
-          resolve(_res_backupDataBase)
-        }
-        const _res_statisticTraffic = await statisticTraffic()
-        if (!_res_statisticTraffic.success) {
-          resolve(_res_statisticTraffic)
-        }
-        const _res_restartService = await restartService()
-        if (!_res_restartService.success) {
-          resolve(_res_restartService)
-        }
+      const _res_backupDataBase = await backupDataBase()
+      if (!_res_backupDataBase.success) {
+        resolve(_res_backupDataBase)
       }
-      resolve({
-        success: true,
-        message: '每日任务执行成功'
-      })
+      const _res_statisticTraffic = await statisticTraffic()
+      if (!_res_statisticTraffic.success) {
+        resolve(_res_statisticTraffic)
+      }
+      if (!isDevEnv()) {
+        const _res_restartService = await restartService()
+        _res_restartService.message = _res_restartService.message +' 每日任务执行成功'
+        resolve(_res_restartService)
+      } else {
+        resolve({
+          success: true,
+          message: '每日任务执行成功'
+        })
+      }
     } catch(e) {
       resolve({
         success: false,
@@ -489,8 +486,7 @@ function dailySchedule() {
 function backupDataBase(){
   return new Promise(async resolve => {
     const {database} = getConfigs()
-    const {success, data, message} = await execCommand(`mysqldump -u ${database.user} -p ${database.password} ${database.database} > ${database.database}_backup.sql`)
-    console.log(message)
+    const {success, data, message} = await execCommand(`mysqldump -u${database.user} -p${database.password} ${database.database} > ${database.database}_backup.sql`)
     resolve({
       success,
       data,
@@ -567,7 +563,6 @@ function recombineConfigFile() {
 
 function addUser({name, password}) {
   return new Promise(async resolve => {
-    console.log(1111)
     try {
       const _res = await mysqlPromise(`select * from users where name='${name}';`);
       if (_res.success) {
@@ -600,6 +595,7 @@ function addUser({name, password}) {
 
 exports = module.exports = {
     restartService,
+    execCommand,
     statisticTraffic,
     resetTraffic,
     detectDuplicateAccount,
@@ -617,6 +613,7 @@ exports = module.exports = {
     backupDataBase,
     recombineConfigFile,
     setDailySchedule,
+    dailySchedule,
     addUser,
     login
 }

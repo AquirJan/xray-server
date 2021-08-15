@@ -11,10 +11,12 @@ const {
   statisticTraffic,
   resetTraffic,
   restartService,
+  execCommand,
   backupConfigFile,
   backupDataBase,
   recombineConfigFile,
   addUser,
+  dailySchedule,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -164,7 +166,10 @@ async function restartServiceCtl(req, res) {
 async function testActionCtl(req, res) {
   // const _res = await backupConfigFile()
   // const _res = await backupDataBase()
-  const _res = await recombineConfigFile()
+  // const _res = await recombineConfigFile()
+  const _res = await dailySchedule()
+  // const {success, data, message} = await execCommand(`systemctl restart xray`)
+  // console.log('controllers log')
   res.send(_res)
 }
 
