@@ -28,7 +28,7 @@ const {
   prod
 } = require('../configs.js')
 // const nodelogger = require('node-logger')
-
+let mailerTransporter = undefined;
 let logger = undefined;
 
 function getConfigs() {
@@ -51,6 +51,7 @@ const initAction = async function() {
       dateFormat:'YYYY-MM-DD'
     };
     logger = require('simple-node-logger').createRollingFileLogger( opts );
+    // initMailer()
     // 每日任务
     // schedule.scheduleJob('0 0 9 * * *', ()=>{
     //   logger.info('每日任务')
@@ -84,6 +85,32 @@ const initAction = async function() {
         await closeDB()
     }
     
+}
+
+const initMailer = async function() {
+  mailerTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: 'wing.free0@gmail.com',
+      pass: 'Aquir239'
+    }
+  });
+  // mailerTransporter.verify().then((e)=>{
+  //   console.log('nodemailer verify')
+  //   console.log(e)
+  // }).catch((err) => {
+  //   console.error(err)
+  // });
+  mailerTransporter.sendMail({
+    from: 'wing.free0@gmail.com', // sender address
+    to: "aquirjan@icloud.com", // list of receivers
+    subject: "Medium @edigleyssonsilva ✔", // Subject line
+    text: "There is a new article. It's about sending emails, check it out!", // plain text body
+    html: "<b>There is a new article. It's about sending emails, check it out!</b>", // html body
+  }).then(info => {
+    console.log({info});
+  }).catch(console.error);
+  
 }
 
 function execCommand(command) {
