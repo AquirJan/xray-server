@@ -355,23 +355,31 @@ async function deleteClient({id, email}) {
 function findOutOverTraffic() {
   return Promise(async resolve => {
     const _current_clients = path.resolve(`current-clients.json`);
-    let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
-    const {success, data} = await mysqlPromise(_sql)
-    if (!success) {
-      logger.info(`查询可用账号出错`)
+    if (fs.existsSync(_current_clients)) {
+      let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
+      const {success, data} = await mysqlPromise(_sql)
+      if (!success) {
+        logger.info(`查询可用账号出错`)
+        resolve({
+          success,
+          message: '查询可用账号出错'
+        })
+      }
+      let _current_emails = _current_clients.map(val => val.email).sort();
+      let _out_traffic_emails = data.map(val => val.email).sort()
+      logger.info('比较账号是否一致')
       resolve({
-        success,
-        message: '查询可用账号出错'
+        success: true,
+        result: JSON.stringify(_current_emails) === JSON.stringify(_out_traffic_emails)
+      })
+    } else {
+      logger.info('current-clients.json 文件不存在')
+      resolve({
+        success: false,
+        message: 'current-clients.json 文件不存在',
+        result: true
       })
     }
-    let _current_emails = _current_clients.map(val => val.email).sort();
-    let _out_traffic_emails = data.map(val => val.email).sort()
-    console.log(_current_emails)
-    console.log(_out_traffic_emails)
-    resolve({
-      success: true,
-      result: JSON.stringify(_current_emails) === JSON.stringify(_out_traffic_emails)
-    }) 
   })
 }
 
@@ -514,7 +522,7 @@ function setDailySchedule() {
       await statisticTraffic(true)
       const {success, result} = findOutOverTraffic()
       if (success && result) {
-        logger.info('发现有账号超出流量')
+        logger.info('需要更新xray配置文件')
         restartService()
       }
     });
