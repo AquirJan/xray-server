@@ -128,7 +128,7 @@ async function deleteClientCtl(req, res) {
 }
 
 async function updateTrafficCtl(req, res) {
-  const {success, data, message} = await statisticTraffic()
+  const {success, data, message} = await statisticTraffic(true)
   res.send({
     success,
     data,

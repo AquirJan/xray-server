@@ -339,10 +339,11 @@ async function deleteClient({id}) {
   })
 }
 
-async function statisticTraffic() {
+async function statisticTraffic(reset=false) {
   return new Promise(async resolve=> {
     if (!isDevEnv()) {
-      const {success, data, message} = await execCommand('xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json')
+      let _reset = reset ? ' -reset' : '' 
+      const {success, data, message} = await execCommand(`xray api statsquery --server=127.0.0.1:10088${_reset} -pattern "" > xray-stats.json`)
       if (!success) {
         logger.info('统计命令执行出错: [ '+message+' ] '+JSON.stringify(data))
         resolve({
@@ -472,7 +473,7 @@ function setDailySchedule() {
     });
     schedule.scheduleJob('0 0 */2 * * *',  ()=>{
       logger.info('统计流量计划任务')
-      statisticTraffic()
+      statisticTraffic(true)
     });
   } catch(e) {
     logger.info(`error dailyScheduleAction ${JSON.stringify(e)}`)
