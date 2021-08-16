@@ -115,14 +115,14 @@ async function putClientCtl(req, res) {
 }
 
 async function deleteClientCtl(req, res) {
-  const {id} = req.body;
+  const {id, email} = req.body;
   if (!id) {
     res.send({
       success: false,
       message: '请输传入id'
     })
   }
-  const _res = await deleteClient({id});
+  const _res = await deleteClient({id, email});
   _res['message'] = _res.success ? '删除成功' : '删除失败'
   res.send(_res)
 }
@@ -175,7 +175,6 @@ async function testActionCtl(req, res) {
 
 async function putUserCtl(req, res) {
   const {name, password} = req.body;
-  console.log(name, password)
   if (!name) {
     res.send({
       success: false,
@@ -189,7 +188,6 @@ async function putUserCtl(req, res) {
     })
   }
   const _res = await addUser({name, password})
-  console.log(_res)
   res.send(_res)
 }
 

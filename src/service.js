@@ -5,9 +5,9 @@ const INITSQLS = [
 ]
 const CREATEDBSQL = "create database if not exists `vpndb`;"
 
-const io = require("socket.io-client");
+// const io = require("socket.io-client");
 const { exec, execSync } = require('child_process');
-const {mergeDeep} = require('./util')
+// const {mergeDeep} = require('./util')
 
 const {
     connectDB,
@@ -30,6 +30,7 @@ const {
 // const nodelogger = require('node-logger')
 let mailerTransporter = undefined;
 let logger = undefined;
+let scheduleJobList = {}
 
 function getConfigs() {
   return ENV === 'production' ? prod : dev;
@@ -58,7 +59,6 @@ const initAction = async function() {
     //   autoDeleteLog()
     // });
     autoDeleteLog()
-    
     // console.log('连接数据库')
     const _configs = getConfigs();
     const _dbset = _configs.database
@@ -70,7 +70,6 @@ const initAction = async function() {
     };
     await connectDB(_fdbset)
     const _cdbres = await queryPromise(CREATEDBSQL)
-    // console.log(_cdbres)
     logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
     await closeDB()
     const _resSheet = await connectDB()
@@ -210,7 +209,6 @@ function listClients({page, size, conditions}) {
     }
     _sql.push(`order by create_time desc limit ${size} offset ${(page-1)*size};`)
     _sql = _sql.join(' ')
-    // console.log(_sql)
     const _res = await mysqlPromise(_sql)
     resolve(_res)
   })
@@ -239,7 +237,6 @@ function login({name, password}) {
       const _matchUserIndex = findOutToken(name)
       if (_matchUserIndex !== undefined) {
         // 触发单点登陆/另一台机器登陆/删除匹配信息
-        console.log('触发单点登陆/另一台机器登陆/删除匹配信息')
         logger.info('触发单点登陆/另一台机器登陆/删除匹配信息')
         Tokens.splice(_matchUserIndex, 1)
       } 
@@ -307,10 +304,12 @@ function verifyToken(_realToken) {
 
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
-    console.log(off_date)
     let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
-     console.log(_sql)
     const _res = await mysqlPromise(_sql)
+    if (_res.success) {
+      const newScheduleJob = schedule.scheduleJob(off_date, restartService)
+      scheduleJobList[email] = newScheduleJob
+    }
     resolve(_res)
   })
 }
@@ -319,6 +318,14 @@ async function updateClient({id, email, uuid, port, off_date, price, traffic, re
   return new Promise(async resolve=> {
     let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
     const _res = await mysqlPromise(_sql)
+    if (_res.success) {
+      if (scheduleJobList[email]){
+        scheduleJobList[email].cancel()
+        scheduleJobList[email] = null;
+      }
+      const newScheduleJob = schedule.scheduleJob(off_date, restartService)
+      scheduleJobList[email] = newScheduleJob
+    }
     resolve(_res)
   })
 }
@@ -331,11 +338,40 @@ async function detectDuplicateAccount({email, uuid}){
   })
 }
 
-async function deleteClient({id}) {
+async function deleteClient({id, email}) {
   return new Promise(async resolve=> {
     let _sql = `delete from clients where id=${id};`
     const _res = await mysqlPromise(_sql)
+    if (_res.success) {
+      if (scheduleJobList[email]){
+        scheduleJobList[email].cancel()
+        delete scheduleJobList[email];
+      }
+    }
     resolve(_res)
+  })
+}
+
+function findOutOverTraffic() {
+  return Promise(async resolve => {
+    const _current_clients = path.resolve(`current-clients.json`);
+    let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
+    const {success, data} = await mysqlPromise(_sql)
+    if (!success) {
+      logger.info(`查询可用账号出错`)
+      resolve({
+        success,
+        message: '查询可用账号出错'
+      })
+    }
+    let _current_emails = _current_clients.map(val => val.email).sort();
+    let _out_traffic_emails = data.map(val => val.email).sort()
+    console.log(_current_emails)
+    console.log(_out_traffic_emails)
+    resolve({
+      success: true,
+      result: JSON.stringify(_current_emails) === JSON.stringify(_out_traffic_emails)
+    }) 
   })
 }
 
@@ -446,6 +482,7 @@ function restartService() {
           execCommand(`systemctl restart xray`)
         }
       } else {
+        logger.info('重启服务成功')
         resolve({
           success: true,
           message: '重启服务成功'
@@ -471,9 +508,15 @@ function setDailySchedule() {
       //删除日志文件
       autoDeleteLog();
     });
-    schedule.scheduleJob('0 0 */2 * * *',  ()=>{
+    let _time = isDevEnv() ? '0 */10 * * * *' : '0 0 */2 * * *';
+    schedule.scheduleJob(_time,  async ()=>{
       logger.info('统计流量计划任务')
-      statisticTraffic(true)
+      await statisticTraffic(true)
+      const {success, result} = findOutOverTraffic()
+      if (success && result) {
+        logger.info('发现有账号超出流量')
+        restartService()
+      }
     });
   } catch(e) {
     logger.info(`error dailyScheduleAction ${JSON.stringify(e)}`)
@@ -581,6 +624,7 @@ function recombineConfigFile() {
     })
     let _configObj = require(_tplConfig)
     _configObj.inbounds[0].settings['clients'] = _clients
+    fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients), {encoding: 'utf-8'})
     fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
     resolve({
       success: true,
