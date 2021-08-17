@@ -33,7 +33,8 @@ const {
     resetTrafficCtl,
     restartServiceCtl,
     testActionCtl,
-    putUserCtl
+    putUserCtl,
+    genQrcodeCtl
 } = require('./src/controller')
 const {
     initAction,
@@ -54,7 +55,9 @@ app.post(`${PROJECTNAME}/updateTraffic`, verifyTokenMiddle, updateTrafficCtl)
 app.post(`${PROJECTNAME}/resetTraffic`, verifyTokenMiddle, resetTrafficCtl)
 app.post(`${PROJECTNAME}/restartService`, verifyTokenMiddle, restartServiceCtl)
 app.post(`${PROJECTNAME}/addUser`, putUserCtl)
+app.post(`${PROJECTNAME}/genQrcode`, genQrcodeCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
+
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))

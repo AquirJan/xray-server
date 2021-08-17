@@ -15,6 +15,7 @@ const {
   backupConfigFile,
   backupDataBase,
   recombineConfigFile,
+  genQrcode,
   addUser,
   dailySchedule,
 } = require('./service.js')
@@ -191,6 +192,24 @@ async function putUserCtl(req, res) {
   res.send(_res)
 }
 
+async function genQrcodeCtl(req, res) {
+  const { email } = req.body;
+  if (!email) {
+    res.send({
+      success: false,
+      message: '请传入email'
+    })
+  }
+  // if (!platform) {
+  //   res.send({
+  //     success: false,
+  //     message: '请传入平台参数 platform'
+  //   })
+  // }
+  const _res = await genQrcode({email})
+  res.send(_res)
+}
+
 exports = module.exports = {
   loginCtl,
   restartServiceCtl,
@@ -201,5 +220,6 @@ exports = module.exports = {
   updateTrafficCtl,
   resetTrafficCtl,
   testActionCtl,
-  putUserCtl
+  putUserCtl,
+  genQrcodeCtl
 }

@@ -14,11 +14,13 @@
     "body-parser": "*",
     "cross-env": "*",
     "express": "*",
+    "jimp": "^0.16.1",
     "mysql": "^2.18.1",
     "node-fetch": "^2.6.1",
     "node-logger": "*",
     "node-schedule": "*",
     "nodemailer": "^6.6.2",
+    "qrcode": "^1.4.4",
     "simple-node-logger": "^18.12.24",
     "socket.io": "^4.1.2",
     "socket.io-client": "^4.1.2"

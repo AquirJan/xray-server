@@ -21,6 +21,7 @@ const fs = require('fs')
 const path = require('path')
 const nodemailer = require("nodemailer");
 const schedule = require('node-schedule');
+const QRCode = require('qrcode')
 const LOGFOLDER = 'logs'
 let Tokens = []
 const {
@@ -673,27 +674,62 @@ function addUser({name, password}) {
   })
 }
 
+function genQrcode({email}) {
+  return new Promise(async resolve => {
+    let _sql = `select * from clients where email = '${email}'`;
+    const {success, data} = await mysqlPromise(_sql)
+    if (!success || !data || (success && data && !data.length)) {
+      resolve({
+        success,
+        data,
+        message: '不存在该用户'
+      })
+    }
+    const _client = data[0]
+    let _config = `vless://${_client.uuid}@www.samojum.ml:443?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=%2fwsxray#${_client.email}`
+    QRCode.toDataURL(_config)
+    .then(url => {
+      resolve({
+        success: true,
+        data: {
+          url,
+          config: _config
+        },
+        message: `生成成功`
+      })
+    })
+    .catch(err => {
+      resolve({
+        success: false,
+        data: err,
+        message: `生成失败`
+      })
+    })
+  })
+}
+
 exports = module.exports = {
-    restartService,
-    execCommand,
-    statisticTraffic,
-    resetTraffic,
-    detectDuplicateAccount,
-    listClients,
-    deleteClient,
-    addClient,
-    updateClient,
-    verifyToken,
-    initAction,
-    getConfigs,
-    isDevEnv,
-    getRandomIntInclusive,
-    sleep,
-    backupConfigFile,
-    backupDataBase,
-    recombineConfigFile,
-    setDailySchedule,
-    dailySchedule,
-    addUser,
-    login
+  genQrcode,
+  restartService,
+  execCommand,
+  statisticTraffic,
+  resetTraffic,
+  detectDuplicateAccount,
+  listClients,
+  deleteClient,
+  addClient,
+  updateClient,
+  verifyToken,
+  initAction,
+  getConfigs,
+  isDevEnv,
+  getRandomIntInclusive,
+  sleep,
+  backupConfigFile,
+  backupDataBase,
+  recombineConfigFile,
+  setDailySchedule,
+  dailySchedule,
+  addUser,
+  login
 }
