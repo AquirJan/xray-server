@@ -41,7 +41,7 @@ function isDevEnv() {
   return ENV !== 'production';
 }
 
-const initAction = async function() {
+async function initAction() {
     if (!fs.existsSync(path.resolve(LOGFOLDER))) {
       fs.mkdirSync(path.resolve(LOGFOLDER))
     }
@@ -708,7 +708,38 @@ function genQrcode({email}) {
   })
 }
 
+function queryClientTraffic({email}) {
+  return new Promise(async resolve => {
+    try {
+      let _sql = `select up, down, traffic, off_date from clients where email='${email}'`
+      const {success, data} = await mysqlPromise(_sql)
+
+      if (data && data.length) {
+        resolve({
+          success,
+          data: data[0],
+          message: success ? `查询 ${email} 流量成功` : `查询 ${email} 流量失败`
+        })
+      } else {
+        resolve({
+          success,
+          data,
+          message: `没有 ${email} 的相关信息`
+        })
+      }
+      
+    } catch(err) {
+      resolve({
+        success: false,
+        data: err,
+        message: `查询 ${email} 流量异常`
+      })
+    }
+  })
+}
+
 exports = module.exports = {
+  queryClientTraffic,
   genQrcode,
   restartService,
   execCommand,

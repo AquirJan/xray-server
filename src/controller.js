@@ -18,6 +18,7 @@ const {
   genQrcode,
   addUser,
   dailySchedule,
+  queryClientTraffic,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -210,7 +211,20 @@ async function genQrcodeCtl(req, res) {
   res.send(_res)
 }
 
+async function queryClientTrafficCtl(req, res) {
+  const { email } = req.body;
+  if (!email) {
+    res.send({
+      success: false,
+      message: '请传入email'
+    })
+  }
+  const _res = await queryClientTraffic({email})
+  res.send(_res)
+}
+
 exports = module.exports = {
+  queryClientTrafficCtl,
   loginCtl,
   restartServiceCtl,
   putClientCtl,

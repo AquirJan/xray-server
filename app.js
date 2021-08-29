@@ -34,7 +34,8 @@ const {
     restartServiceCtl,
     testActionCtl,
     putUserCtl,
-    genQrcodeCtl
+    genQrcodeCtl,
+    queryClientTrafficCtl
 } = require('./src/controller')
 const {
     initAction,
@@ -54,6 +55,7 @@ app.post(`${PROJECTNAME}/deleteClient`, verifyTokenMiddle, deleteClientCtl)
 app.post(`${PROJECTNAME}/updateTraffic`, verifyTokenMiddle, updateTrafficCtl)
 app.post(`${PROJECTNAME}/resetTraffic`, verifyTokenMiddle, resetTrafficCtl)
 app.post(`${PROJECTNAME}/restartService`, verifyTokenMiddle, restartServiceCtl)
+app.post(`${PROJECTNAME}/queryClientTraffic`, queryClientTrafficCtl)
 app.post(`${PROJECTNAME}/addUser`, putUserCtl)
 app.post(`${PROJECTNAME}/genQrcode`, genQrcodeCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
