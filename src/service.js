@@ -308,7 +308,9 @@ async function addClient({email, uuid, port, off_date, price, traffic, remark}){
     let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
     const _res = await mysqlPromise(_sql)
     if (_res.success) {
-      const newScheduleJob = schedule.scheduleJob(off_date, restartService)
+      const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
+        restartService(_res.data[0])
+      })
       scheduleJobList[email] = newScheduleJob
     }
     resolve(_res)
@@ -324,7 +326,9 @@ async function updateClient({id, email, uuid, port, off_date, price, traffic, re
         scheduleJobList[email].cancel()
         scheduleJobList[email] = null;
       }
-      const newScheduleJob = schedule.scheduleJob(off_date, restartService)
+      const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
+        restartService(_res.data[0])
+      })
       scheduleJobList[email] = newScheduleJob
     }
     resolve(_res)
@@ -473,7 +477,7 @@ function resetTraffic({email, id}) {
   })
 }
 
-function restartService() {
+function restartService({email, id}) {
   return new Promise(async resolve => {
     try {
       const _res_backupConfigFile = await backupConfigFile()
@@ -483,6 +487,12 @@ function restartService() {
       const _res_recombine = await recombineConfigFile()
       if (!_res_recombine.success) {
         resolve(_res_recombine)
+      }
+      if (email && id) {
+        const _res_resetTraffic = await resetTraffic({email, id})
+        if (!_res_resetTraffic.success) {
+          resolve(_res_resetTraffic)
+        }
       }
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
