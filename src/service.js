@@ -477,7 +477,7 @@ function resetTraffic({email, id}) {
   })
 }
 
-function restartService({email, id}) {
+function restartService(params) {
   return new Promise(async resolve => {
     try {
       const _res_backupConfigFile = await backupConfigFile()
@@ -488,7 +488,8 @@ function restartService({email, id}) {
       if (!_res_recombine.success) {
         resolve(_res_recombine)
       }
-      if (email && id) {
+      if (params) {
+        const {email, id} = params;
         const _res_resetTraffic = await resetTraffic({email, id})
         if (!_res_resetTraffic.success) {
           resolve(_res_resetTraffic)
@@ -591,6 +592,7 @@ function backupConfigFile(){
     if (isDevEnv()) {
       _path = './xray-config.json'
     }
+    console.log('备份配置文件')
     const _configFile = path.resolve(_path)
     if (!fs.existsSync(_configFile)){
       resolve({
@@ -610,6 +612,7 @@ function backupConfigFile(){
 function recombineConfigFile() {
   return new Promise(async resolve => {
     const _tplConfig = path.resolve('xray-config-template.json');
+    console.log('重组配置文件')
     if (!fs.existsSync(_tplConfig)) {
       logger.info(`模板配置文件丢失`)
       resolve({
