@@ -17,6 +17,8 @@ const {
   recombineConfigFile,
   genQrcode,
   addUser,
+  updateUser,
+  deleteUser,
   dailySchedule,
   queryClientTraffic,
 } = require('./service.js')
@@ -176,20 +178,45 @@ async function testActionCtl(req, res) {
 }
 
 async function putUserCtl(req, res) {
-  const {name, password} = req.body;
-  if (!name) {
+  const {id, name, password, remark} = req.body;
+  if (id) {
+    if (!id) {
+      res.send({
+        success: false,
+        message: '请传入必要参数id'
+      })
+    }
+    console.log(id, name)
+    const _res = await updateUser({id, name, remark, password})
+    res.send(_res)
+  } else {
+    if (!name) {
+      res.send({
+        success: false,
+        message: '请传入name'
+      })
+    }
+    if (!password) {
+      res.send({
+        success: false,
+        message: '请传入password'
+      })
+    }
+    const _res = await addUser({name, password})
+    res.send(_res)
+  }
+}
+
+async function deleteUserCtl(req, res) {
+  const {id} = req.body;
+  if (!id) {
     res.send({
       success: false,
-      message: '请传入name'
+      message: '请输传入id'
     })
   }
-  if (!password) {
-    res.send({
-      success: false,
-      message: '请传入password'
-    })
-  }
-  const _res = await addUser({name, password})
+  const _res = await deleteUser({id});
+  _res['message'] = _res.success ? '删除成功' : '删除失败'
   res.send(_res)
 }
 
@@ -235,5 +262,6 @@ exports = module.exports = {
   resetTrafficCtl,
   testActionCtl,
   putUserCtl,
+  deleteUserCtl,
   genQrcodeCtl
 }

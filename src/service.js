@@ -1,6 +1,6 @@
 const ENV = process.env.NODE_ENV;
 const INITSQLS = [
-    "CREATE TABLE IF NOT EXISTS `users` ( `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `passwd` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '密码', `last_time` datetime DEFAULT NULL COMMENT '上次登录时间', `off_time` datetime DEFAULT NULL COMMENT '截止时间', PRIMARY KEY (`id`)) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci",
+    "CREATE TABLE IF NOT EXISTS `users` ( `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `passwd` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '密码', `last_time` datetime DEFAULT NULL COMMENT '上次登录时间', `off_time` datetime DEFAULT NULL COMMENT '截止时间', `remark` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci",
     "CREATE TABLE IF NOT EXISTS `clients` (`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `email` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `uuid` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户id', `port` int DEFAULT NULL COMMENT '端口', `off_date` datetime DEFAULT NULL COMMENT '结束时间', `remark` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '备注', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', `up` bigint DEFAULT '0' COMMENT '上行数据量', `down` bigint DEFAULT '0' COMMENT '下行数据量', `is_last_day` tinyint DEFAULT '0' COMMENT '是否最后一天结算', `traffic` int DEFAULT '0' COMMENT '可用流量', `price` float DEFAULT '0' COMMENT '每月费用', PRIMARY KEY (`id`), UNIQUE KEY `email_UNIQUE` (`email`) ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci"
 ]
 const CREATEDBSQL = "create database if not exists `vpndb`;"
@@ -655,9 +655,17 @@ function recombineConfigFile() {
   })
 }
 
-function addUser({name, password}) {
+function addUser({name, password, remark}) {
   return new Promise(async resolve => {
     try {
+      if (!name || !password) {
+        resolve({
+          success: false, 
+          message: `请传入必要参数 name, password`,
+        })
+        return;
+      }
+      const _remark = remark ? remark : ''
       const _res = await mysqlPromise(`select * from users where name='${name}';`);
       if (_res.success) {
         if (_res.data && _res.data.length) {
@@ -666,7 +674,7 @@ function addUser({name, password}) {
             message: '该账号已存在'
           })
         } else {
-          let _sql = `insert into users ( name, passwd ) VALUES ( '${name}', '${password}' );`
+          let _sql = `insert into users ( name, passwd, remark ) VALUES ( '${name}', '${password}', '${_remark}' );`
           const {success, data} = await mysqlPromise(_sql)
           resolve({
             success,
@@ -682,6 +690,65 @@ function addUser({name, password}) {
         success: false,
         data: err,
         message: '添加用户catch异常'
+      })
+    }
+  })
+}
+
+function updateUser({id, name, password, remark}) {
+  return new Promise(async resolve => {
+    try {
+      if (!id) {
+        resolve({
+          success: false, 
+          message: `请传入必要参数 id`,
+        })
+        return;
+      }
+      const _remark = remark ? remark : ''
+      const _password = password ? password : ''
+      const _res = await mysqlPromise(`select * from users where id=${id};`);
+      if (_res.success && _res.data && _res.data.length) {
+        const _updateRes = await mysqlPromise(`update users set passwd='${_password}', remark='${_remark}' where id=${id};`);
+        resolve({
+          success: _updateRes.success,
+          data: _updateRes.data,
+          message: _updateRes.success ? `更新用户[${name}]成功` : `更新用户[${name}]失败`
+        })
+      } else {
+        resolve({
+          success: _res.success,
+          data: _res.data,
+          message: _res.success ? `找不到用户[ ${name} ]` : `查找需要更新的用户[ ${name} ]失败`
+        })
+      }
+    } catch(err) {
+      resolve({
+        success: false,
+        data: err,
+        message: '更新用户catch异常'
+      })
+    }
+  })
+}
+
+function deleteUser({id}) {
+  return new Promise(async resolve => {
+    try {
+      if (!id) {
+        resolve({
+          success: false, 
+          message: `请传入必要参数 id`,
+        })
+        return;
+      }
+      const _res = await mysqlPromise(`delete from users where id=${id};`);
+      resolve(_res)
+    } catch(err) {
+      resolve({
+        success: false,
+        data: err,
+        message: '删除用户catch异常'
       })
     }
   })
@@ -775,5 +842,7 @@ exports = module.exports = {
   setDailySchedule,
   dailySchedule,
   addUser,
+  deleteUser,
+  updateUser,
   login
 }
