@@ -303,15 +303,63 @@ function verifyToken(_realToken) {
   })
 }
 
+function setupClientSchedule({email, off_date, id}) {
+  if ((new Date().getTime()) > (new Date(off_date).getTime())) {
+    return;
+  }
+  if (!scheduleJobList) {
+    scheduleJobList = {}
+  }
+  // console.log(`${email} setup off_date schedule action`)
+  const _scheduleName = email.replace(/\.|\@/gi, '_')
+  const _scheduleNameDaily = `${_scheduleName}_daily`
+  if (scheduleJobList[_scheduleName]){
+    scheduleJobList[_scheduleName].cancel()
+    delete scheduleJobList[_scheduleName];
+  }
+  if (scheduleJobList[_scheduleNameDaily]) {
+    scheduleJobList[_scheduleNameDaily].cancel()
+    delete scheduleJobList[_scheduleNameDaily];
+  }
+  const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
+    // console.log(`${email} excute off_date schedule action`)
+    if (scheduleJobList[_scheduleNameDaily]) {
+      scheduleJobList[_scheduleNameDaily].cancel()
+      delete scheduleJobList[_scheduleNameDaily];
+    }
+    restartService({email, id})
+  })
+  scheduleJobList[_scheduleName] = newScheduleJob
+
+  let _odDateObj = new Date(off_date)
+  let _nowo = new Date()
+  let _nowoPlus = new Date(_nowo.setMonth(_nowo.getMonth()+1))
+  if ((_nowoPlus.getTime()) >= (_odDateObj.getTime())) {
+    return;
+  }
+  // console.log(`${email} setup daily schedule action`)
+  const _scheduleTime = `${_odDateObj.getSeconds()} ${_odDateObj.getMinutes()} ${_odDateObj.getHours()} ${_odDateObj.getDate()} * *`
+  const _accountDaily = schedule.scheduleJob(_scheduleTime, async ()=>{
+    // console.log(`${email} excute daily schedule action`)
+    await restartService({email, id})
+    let _now = new Date()
+    let _nowPlus = new Date(_now.setMonth(_now.getMonth()+1))
+    if (_nowPlus.getTime() >= _odDateObj.getTime()) {
+      if (scheduleJobList[_scheduleNameDaily]) {
+        scheduleJobList[_scheduleNameDaily].cancel()
+        delete scheduleJobList[_scheduleNameDaily];
+      }
+    }
+  })
+  scheduleJobList[_scheduleNameDaily] = _accountDaily
+}
+
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
     let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
     const _res = await mysqlPromise(_sql)
     if (_res.success) {
-      const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
-        restartService(_res.data[0])
-      })
-      scheduleJobList[email] = newScheduleJob
+      setupClientSchedule({email, off_date, id})
     }
     resolve(_res)
   })
@@ -322,14 +370,7 @@ async function updateClient({id, email, uuid, port, off_date, price, traffic, re
     let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
     const _res = await mysqlPromise(_sql)
     if (_res.success) {
-      if (scheduleJobList[email]){
-        scheduleJobList[email].cancel()
-        scheduleJobList[email] = null;
-      }
-      const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
-        restartService(_res.data[0])
-      })
-      scheduleJobList[email] = newScheduleJob
+      setupClientSchedule({email, off_date, id})
     }
     resolve(_res)
   })
@@ -358,8 +399,10 @@ async function deleteClient({id, email}) {
 }
 
 function findOutOverTraffic() {
-  return Promise(async resolve => {
-    const _current_clients = path.resolve(`current-clients.json`);
+  return new Promise(async resolve => {
+    const _current_clients = require(path.resolve(`current-clients.json`));
+    // console.log('findOutOverTraffic')
+    // console.dir(_current_clients)
     if (fs.existsSync(_current_clients)) {
       let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
       const {success, data} = await mysqlPromise(_sql)
@@ -609,6 +652,19 @@ function backupConfigFile(){
   })
 }
 
+async function autoSetupSchedule() {
+  let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
+  const {success, data} = await mysqlPromise(_sql)
+  if (!success || !data || !data.length) {
+    return;
+  }
+  // console.log(`autoSetupSchedule`)
+  // console.log(data)
+  data.forEach(val => {
+    setupClientSchedule(val)
+  })
+}
+
 function recombineConfigFile() {
   return new Promise(async resolve => {
     const _tplConfig = path.resolve('xray-config-template.json');
@@ -835,6 +891,7 @@ exports = module.exports = {
   getConfigs,
   isDevEnv,
   getRandomIntInclusive,
+  autoSetupSchedule,
   sleep,
   backupConfigFile,
   backupDataBase,

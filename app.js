@@ -41,12 +41,14 @@ const {
 const {
     initAction,
     getConfigs,
+    autoSetupSchedule,
     setDailySchedule
 } = require('./src/service')
 const PROJECTNAME = '/xray'
 
 initAction();
 setDailySchedule()
+autoSetupSchedule()
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
