@@ -73,7 +73,7 @@ async function putClientCtl(req, res) {
   const _port = port ? port : 443;
   const _price = price ? price : 20;
   const _traffic = traffic ? traffic : 20;
-  let _off_date = off_date ? new Date(new Date(off_date).toISOString()).format('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).format('yyyy/MM/dd hh:mm:ss')
+  let _off_date = off_date ? new Date(off_date).utcFormat('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).utcFormat('yyyy/MM/dd hh:mm:ss')
   if (!email) {
     res.send({
       success: false,
