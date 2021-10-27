@@ -68,12 +68,17 @@ async function listClientsCtl(req, res) {
 }
 
 async function putClientCtl(req, res) {
-  const {id, email, uuid, price, off_date, port, remark, traffic} = req.body
+  const {id, email, uuid, price, off_date, port, remark, traffic, timezone} = req.body
   const _now = new Date()
   const _port = port ? port : 443;
   const _price = price ? price : 20;
   const _traffic = traffic ? traffic : 20;
-  let _off_date = off_date ? new Date(off_date).utcFormat('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).utcFormat('yyyy/MM/dd hh:mm:ss')
+  let _timezoneDirect = Number(timezone) > 0 ? '+' : '-'
+  let _timeDelta = Math.abs(Number(timezone))
+  _timeDelta = _timeDelta > 10 ? `${_timeDelta}:00` : `0${_timeDelta}:00`
+  let _timezoneDelta = `GMT${_timezoneDirect}${_timeDelta}`
+  let _off_date = off_date ? new Date(off_date + ` ${_timezoneDelta}`).utcFormat('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).utcFormat('yyyy/MM/dd hh:mm:ss')
+  
   if (!email) {
     res.send({
       success: false,
@@ -186,7 +191,7 @@ async function putUserCtl(req, res) {
         message: '请传入必要参数id'
       })
     }
-    console.log(id, name)
+    // console.log(id, name)
     const _res = await updateUser({id, name, remark, password})
     res.send(_res)
   } else {
