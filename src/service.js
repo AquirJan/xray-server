@@ -12,8 +12,8 @@ const { exec, execSync } = require('child_process');
 const {
     connectDB,
     closeDB,
-    queryPromise,
-    mysqlPromise
+    // queryPromise,
+    queryPromise
 } = require('./mysql')
 
 const fetch = require('node-fetch');
@@ -82,9 +82,11 @@ async function initAction() {
               break;
             }
         }
-        await closeDB()
+        // await closeDB()
     }
-    
+    if (!isDevEnv()) {
+      recombineConfigFile()
+    }
 }
 
 const initMailer = async function() {
@@ -210,14 +212,14 @@ function listClients({page, size, conditions}) {
     }
     _sql.push(`order by create_time desc limit ${size} offset ${(page-1)*size};`)
     _sql = _sql.join(' ')
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     resolve(_res)
   })
 }
 
 function login({name, password}) {
   return new Promise(async resolve => {
-    const { data, message, success} = await mysqlPromise(`select * from users where name = '${name}'`)
+    const { data, message, success} = await queryPromise(`select * from users where name = '${name}'`)
     if (!success) {
       resolve({
         success: false, 
@@ -242,7 +244,7 @@ function login({name, password}) {
         Tokens.splice(_matchUserIndex, 1)
       } 
       const _offtime = (new Date()).getTime() + 86400 * 1000 * 2 // token有效期2天
-      await mysqlPromise(`update users set lastTime = '${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', offTime = '${(new Date(_offtime)).format('yyyy-MM-dd hh:mm:ss')}' where id = ${_user.id}`)
+      await queryPromise(`update users set lastTime = '${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', offTime = '${(new Date(_offtime)).format('yyyy-MM-dd hh:mm:ss')}' where id = ${_user.id}`)
       const _token = (Buffer.from(JSON.stringify({"name":name, "offTime": _offtime}))).toString('base64')
       Tokens.push({
         token: _token,
@@ -357,7 +359,7 @@ function setupClientSchedule({email, off_date, id}) {
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
     let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     if (_res.success) {
       setupClientSchedule({email, off_date, id})
     }
@@ -368,7 +370,7 @@ async function addClient({email, uuid, port, off_date, price, traffic, remark}){
 async function updateClient({id, email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
     let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     if (_res.success) {
       setupClientSchedule({email, off_date, id})
     }
@@ -379,7 +381,7 @@ async function updateClient({id, email, uuid, port, off_date, price, traffic, re
 async function detectDuplicateAccount({email, uuid}){
   return new Promise(async resolve=> {
     let _sql = `select * from clients where email='${email}' or uuid='${uuid}';`
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     resolve(_res)
   })
 }
@@ -387,7 +389,7 @@ async function detectDuplicateAccount({email, uuid}){
 async function deleteClient({id, email}) {
   return new Promise(async resolve=> {
     let _sql = `delete from clients where id=${id};`
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     if (_res.success) {
       if (scheduleJobList[email]){
         scheduleJobList[email].cancel()
@@ -405,7 +407,7 @@ function findOutOverTraffic() {
     // console.dir(_current_clients)
     if (fs.existsSync(_current_clients)) {
       let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
-      const {success, data} = await mysqlPromise(_sql)
+      const {success, data} = await queryPromise(_sql)
       if (!success) {
         logger.info(`查询可用账号出错`)
         resolve({
@@ -496,7 +498,7 @@ async function statisticTraffic(reset=false) {
     let _sql = `update clients set ${_setColumns} where ${_emails};`
     logger.info('更新流量数据')
     logger.info(_sql)
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     resolve(_res)
   })
 }
@@ -514,8 +516,9 @@ function resetTraffic({email, id}) {
         })
       }
     }
+    logger.info(`重置流量成功`)
     let _sql = `update clients set up=0, down=0 where email='${email}' and id=${id};`
-    const _res = await mysqlPromise(_sql)
+    const _res = await queryPromise(_sql)
     resolve(_res)
   })
 }
@@ -523,6 +526,7 @@ function resetTraffic({email, id}) {
 function restartService(params) {
   return new Promise(async resolve => {
     try {
+      logger.info('重启服务开始')
       const _res_backupConfigFile = await backupConfigFile()
       if (!_res_backupConfigFile.success) {
         resolve(_res_backupConfigFile)
@@ -541,6 +545,7 @@ function restartService(params) {
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
         resolve(_res_changeConfig)
+        logger.info('重启服务成功')
         if (_res_changeConfig.success) {
           execCommand(`systemctl restart xray`)
         }
@@ -654,7 +659,7 @@ function backupConfigFile(){
 
 async function autoSetupSchedule() {
   let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
-  const {success, data} = await mysqlPromise(_sql)
+  const {success, data} = await queryPromise(_sql)
   if (!success || !data || !data.length) {
     return;
   }
@@ -678,7 +683,7 @@ function recombineConfigFile() {
     }
     
     let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
-    const {success, data} = await mysqlPromise(_sql)
+    const {success, data} = await queryPromise(_sql)
     if (!success) {
       logger.info(`查询可用账号出错`)
       resolve({
@@ -722,7 +727,7 @@ function addUser({name, password, remark}) {
         return;
       }
       const _remark = remark ? remark : ''
-      const _res = await mysqlPromise(`select * from users where name='${name}';`);
+      const _res = await queryPromise(`select * from users where name='${name}';`);
       if (_res.success) {
         if (_res.data && _res.data.length) {
           resolve({
@@ -731,7 +736,7 @@ function addUser({name, password, remark}) {
           })
         } else {
           let _sql = `insert into users ( name, passwd, remark ) VALUES ( '${name}', '${password}', '${_remark}' );`
-          const {success, data} = await mysqlPromise(_sql)
+          const {success, data} = await queryPromise(_sql)
           resolve({
             success,
             data,
@@ -763,9 +768,9 @@ function updateUser({id, name, password, remark}) {
       }
       const _remark = remark ? remark : ''
       const _password = password ? password : ''
-      const _res = await mysqlPromise(`select * from users where id=${id};`);
+      const _res = await queryPromise(`select * from users where id=${id};`);
       if (_res.success && _res.data && _res.data.length) {
-        const _updateRes = await mysqlPromise(`update users set passwd='${_password}', remark='${_remark}' where id=${id};`);
+        const _updateRes = await queryPromise(`update users set passwd='${_password}', remark='${_remark}' where id=${id};`);
         resolve({
           success: _updateRes.success,
           data: _updateRes.data,
@@ -798,7 +803,7 @@ function deleteUser({id}) {
         })
         return;
       }
-      const _res = await mysqlPromise(`delete from users where id=${id};`);
+      const _res = await queryPromise(`delete from users where id=${id};`);
       resolve(_res)
     } catch(err) {
       resolve({
@@ -813,7 +818,7 @@ function deleteUser({id}) {
 function genQrcode({email}) {
   return new Promise(async resolve => {
     let _sql = `select * from clients where email = '${email}'`;
-    const {success, data} = await mysqlPromise(_sql)
+    const {success, data} = await queryPromise(_sql)
     if (!success || !data || (success && data && !data.length)) {
       resolve({
         success,
@@ -848,7 +853,7 @@ function queryClientTraffic({email}) {
   return new Promise(async resolve => {
     try {
       let _sql = `select up, down, traffic, off_date from clients where email='${email}'`
-      const {success, data} = await mysqlPromise(_sql)
+      const {success, data} = await queryPromise(_sql)
 
       if (data && data.length) {
         resolve({

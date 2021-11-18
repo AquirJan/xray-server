@@ -4,10 +4,10 @@ const {
   prod,
   dev
 } = require(path.resolve('configs.js'))
-let CONNECTION=null
+let CONNECTION=undefined;
 
 function connectDB(configs) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       if (CONNECTION) {
         resolve({
@@ -19,10 +19,11 @@ function connectDB(configs) {
       if (!dbSet) {
         resolve({
           success: false,
+          data: {message:`请传入数据库配置`},
           message:  `请传入数据库配置`
         })
       }
-      CONNECTION = mysql.createConnection(dbSet);
+      CONNECTION = await mysql.createConnection(dbSet);
       resolve({
         success: true,
         message:  `连接数据库成功`
@@ -39,7 +40,7 @@ function connectDB(configs) {
 }
 
 function closeDB() {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     try {
       // console.log('创建数据库实例')
       if (!CONNECTION) {
@@ -48,8 +49,8 @@ function closeDB() {
           message:  `no db instance`
         })
       }
-      CONNECTION.end();
-      CONNECTION = null;
+      await CONNECTION.end();
+      CONNECTION = undefined;
       resolve({
         success: true,
         message:  `disconnect success`
@@ -65,31 +66,35 @@ function closeDB() {
 }
 
 function queryPromise(_sql) {
-  // console.log('请求数据')
   return new Promise((resolve, reject) => {
     try {
-      if (!CONNECTION) {
+      // console.log('请求数据')
+      if (CONNECTION) {
+        // console.log('------------query------------')
+        CONNECTION.query(_sql, function(err, rows, fields) {
+          if (err) {
+            // console.log('数据出错')
+            resolve({
+              success: false,
+              data: err,
+              message: 'mysql query error'
+            })
+          }
+          // console.log('数据返回')
+          // console.log(rows)
+          resolve({
+            success: true,
+            data: rows
+          })
+        });
+      } else {
+        // console.log(CONNECTION)
         resolve({
           success: false,
+          data:  {message:`no db instance`},
           message:  `no db instance`
         })
       }
-      CONNECTION.query(_sql, function(err, rows, fields) {
-        if (err) {
-          // console.log('数据出错')
-          resolve({
-            success: false,
-            data: err,
-            message: 'mysql query error'
-          })
-        }
-        // console.log('数据返回')
-        // console.log(rows)
-        resolve({
-          success: true,
-          data: rows
-        })
-      });
     } catch(e) {
       // console.log('连接数据库出错', e)
       resolve({
