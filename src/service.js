@@ -402,10 +402,9 @@ async function deleteClient({id, email}) {
 
 function findOutOverTraffic() {
   return new Promise(async resolve => {
-    const _current_clients = require(path.resolve(`current-clients.json`));
-    // console.log('findOutOverTraffic')
-    // console.dir(_current_clients)
-    if (fs.existsSync(_current_clients)) {
+    const _current_file = path.resolve(`current-clients.json`);
+    if (fs.existsSync(_current_file)) {
+      const _current_clients = require(_current_file);
       let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
       const {success, data} = await queryPromise(_sql)
       if (!success) {
