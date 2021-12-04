@@ -436,7 +436,10 @@ async function statisticTraffic(reset=false) {
   return new Promise(async resolve=> {
     if (!isDevEnv()) {
       let _reset = reset ? ' -reset' : '' 
-      const {success, data, message} = await execCommand(`xray api statsquery --server=127.0.0.1:10088${_reset} -pattern "" > xray-stats.json`)
+      // xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json
+      const _cmd = `xray api statsquery --server=127.0.0.1:10088${_reset} -pattern "" > xray-stats.json`
+      console.log(_cmd)
+      const {success, data, message} = await execCommand(_cmd)
       if (!success) {
         logger.info('统计命令执行出错: [ '+message+' ] '+JSON.stringify(data))
         resolve({
