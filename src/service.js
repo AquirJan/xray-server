@@ -404,7 +404,8 @@ function findOutOverTraffic() {
   return new Promise(async resolve => {
     const _current_file = path.resolve(`current-clients.json`);
     if (fs.existsSync(_current_file)) {
-      const _current_clients = require(_current_file);
+      let _current_clients = fs.readFileSync(_current_file, {encoding:'utf-8'});
+      _current_clients = JSON.parse(_current_clients)
       let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
       const {success, data} = await queryPromise(_sql)
       if (!success) {
@@ -449,7 +450,6 @@ async function statisticTraffic(reset=false) {
         })
       }
     }
-    const _xray_statistic_file = path.resolve('xray-stats.json');
     if (!fs.existsSync(_xray_statistic_file)) {
       logger.info(`xray-stats.json 统计文件不存在`)
       resolve({
@@ -457,14 +457,16 @@ async function statisticTraffic(reset=false) {
         message: 'xray-stats.json 统计文件不存在'
       })
     }
-    const _statObj = require(_xray_statistic_file)
-    if (!_statObj.stat) {
-      logger.info(`xray-stats.json 统计文件异常【miss stat field】`)
-      resolve({
-        success: false,
-        message: 'xray-stats.json 统计文件异常【miss stat field】'
-      })
-    }
+    let _xray_statistic_file = fs.readFileSync(path.resolve('xray-stats.json'), {encoding: 'utf-8'});
+    _xray_statistic_file = JSON.parse(_xray_statistic_file)
+    // const _statObj = require(_xray_statistic_file)
+    // if (!_statObj.stat) {
+    //   logger.info(`xray-stats.json 统计文件异常【miss stat field】`)
+    //   resolve({
+    //     success: false,
+    //     message: 'xray-stats.json 统计文件异常【miss stat field】'
+    //   })
+    // }
     let _obj = _statObj.stat.map(val => {
       if (val.name && val.name.match(/user/gi) && val.value) {
         let _name_array = val.name.split('>>>')
@@ -546,10 +548,12 @@ function restartService(params) {
       }
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
-        resolve(_res_changeConfig)
         logger.info('重启服务成功')
         if (_res_changeConfig.success) {
-          execCommand(`systemctl restart xray`)
+          const _res = execCommand(`systemctl restart xray`)
+          return resolve(_res)
+        } else {
+          return resolve(_res_changeConfig)
         }
       } else {
         logger.info('重启服务成功')
@@ -600,7 +604,7 @@ function dailySchedule() {
       if (!_res_backupDataBase.success) {
         resolve(_res_backupDataBase)
       }
-      const _res_statisticTraffic = await statisticTraffic()
+      const _res_statisticTraffic = await statisticTraffic(true)
       if (!_res_statisticTraffic.success) {
         resolve(_res_statisticTraffic)
       }
@@ -707,7 +711,8 @@ function recombineConfigFile() {
         "email": val.email
       }
     })
-    let _configObj = require(_tplConfig)
+    let _configObj = fs.readFileSync(_tplConfig,{encoding:'utf-8'})
+    _configObj = JSON.parse(_configObj)
     _configObj.inbounds[0].settings['clients'] = _clients
     fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients), {encoding: 'utf-8'})
     fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
