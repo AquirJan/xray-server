@@ -5,10 +5,12 @@
             "value": 5745
         },
         {
-            "name": "user>>>wing.free0@gmail.com>>>traffic>>>uplink"
+            "name": "user>>>wing.free0@gmail.com>>>traffic>>>uplink",
+            "value": 100
         },
         {
-            "name": "user>>>wing.free0@gmail.com>>>traffic>>>downlink"
+            "name": "user>>>wing.free0@gmail.com>>>traffic>>>downlink",
+            "value": 100
         },
         {
             "name": "inbound>>>api>>>traffic>>>uplink",

@@ -450,6 +450,7 @@ async function statisticTraffic(reset=false) {
         })
       }
     }
+    let _xray_statistic_file = path.resolve('xray-stats.json')
     if (!fs.existsSync(_xray_statistic_file)) {
       logger.info(`xray-stats.json 统计文件不存在`)
       resolve({
@@ -457,16 +458,8 @@ async function statisticTraffic(reset=false) {
         message: 'xray-stats.json 统计文件不存在'
       })
     }
-    let _xray_statistic_file = fs.readFileSync(path.resolve('xray-stats.json'), {encoding: 'utf-8'});
-    _xray_statistic_file = JSON.parse(_xray_statistic_file)
-    // const _statObj = require(_xray_statistic_file)
-    // if (!_statObj.stat) {
-    //   logger.info(`xray-stats.json 统计文件异常【miss stat field】`)
-    //   resolve({
-    //     success: false,
-    //     message: 'xray-stats.json 统计文件异常【miss stat field】'
-    //   })
-    // }
+    let _statObj = fs.readFileSync(_xray_statistic_file, {encoding: 'utf-8'});
+    _statObj = JSON.parse(_statObj)
     let _obj = _statObj.stat.map(val => {
       if (val.name && val.name.match(/user/gi) && val.value) {
         let _name_array = val.name.split('>>>')
