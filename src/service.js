@@ -1,7 +1,7 @@
 const ENV = process.env.NODE_ENV;
 const INITSQLS = [
     "CREATE TABLE IF NOT EXISTS `users` ( `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `passwd` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '密码', `last_time` datetime DEFAULT NULL COMMENT '上次登录时间', `off_time` datetime DEFAULT NULL COMMENT '截止时间', `remark` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS `clients` (`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `email` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `uuid` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户id', `port` int DEFAULT NULL COMMENT '端口', `off_date` datetime DEFAULT NULL COMMENT '结束时间', `remark` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '备注', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', `up` bigint DEFAULT '0' COMMENT '上行数据量', `down` bigint DEFAULT '0' COMMENT '下行数据量', `is_last_day` tinyint DEFAULT '0' COMMENT '是否最后一天结算', `traffic` int DEFAULT '0' COMMENT '可用流量', `price` float DEFAULT '0' COMMENT '每月费用', PRIMARY KEY (`id`), UNIQUE KEY `email_UNIQUE` (`email`) ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci"
+    "CREATE TABLE IF NOT EXISTS `clients` (`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `email` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `uuid` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户id', `port` int DEFAULT NULL COMMENT '端口', `off_date` datetime DEFAULT NULL COMMENT '结束时间', `remark` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '备注', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', `up` bigint DEFAULT '0' COMMENT '上行数据量', `down` bigint DEFAULT '0' COMMENT '下行数据量', `traffic` int DEFAULT '0' COMMENT '可用流量', `price` float DEFAULT '0' COMMENT '每月费用', PRIMARY KEY (`id`), UNIQUE KEY `email_UNIQUE` (`email`) ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci"
 ]
 const CREATEDBSQL = "create database if not exists `vpndb`;"
 
@@ -459,44 +459,98 @@ async function statisticTraffic(reset=false) {
       })
     }
     let _statObj = fs.readFileSync(_xray_statistic_file, {encoding: 'utf-8'});
+    // logger.info(_statObj)
     _statObj = JSON.parse(_statObj)
+    if (!_statObj || !_statObj.stat) {
+      logger.info(`统计流量数据体缺失stat`)
+      return resolve({
+        success: false,
+        message: '统计流量数据体缺失stat'
+      })
+    }
     let _obj = _statObj.stat.map(val => {
       if (val.name && val.name.match(/user/gi) && val.value) {
+        let _value = Number(val.value)
+        _value = isNaN(_value) ? 0 : _value;
         let _name_array = val.name.split('>>>')
         let _email = _name_array[1]
         let _direction = _name_array[3]
         let _tmpObj = {
           email: _email,
           direction: _direction,
-          value: val.value
+          value: _value
         }
-        // _tmpObj[_direction] = val.value
         return _tmpObj
       }
     })
     _obj = _obj.filter(val=>val!==undefined)
     // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
-    let _down_statements = []
-    let _up_statements = []
-    let _emails = []
-    _obj.forEach(val => {
-      if (val.direction.match(/up/gi)) {
-        _up_statements.push(`when email = '${val.email}' then up+${val.value}`)
+    if (_obj.length) {
+      let _down_statements = []
+      let _up_statements = []
+      let _recombineStatObj = {}
+      let _emails = []
+      _obj.forEach(val => {
+        _recombineStatObj[val.email] = _recombineStatObj[val.email] === undefined ? {} : _recombineStatObj[val.email];
+        let _nums = Number(val.value);
+        _nums = isNaN(_nums) ? 0 : _nums;
+        if (val.direction === 'uplink') {
+          _recombineStatObj[val.email]['up'] = _recombineStatObj[val.email]['up'] === undefined ? _nums : _recombineStatObj[val.email]['up']+_nums
+        }
+        if (val.direction === 'downlink') {
+          _recombineStatObj[val.email]['down'] = _recombineStatObj[val.email]['down'] === undefined ? _nums : _recombineStatObj[val.email]['down']+_nums
+        }
+        _emails.push(`'${val.email}'`)
+      })
+      
+      let _emailSet = Array.from(new Set(_emails)); 
+      _emailSet.forEach(val => {
+        let _item = _recombineStatObj[val.replace(/\'|\"/gi, '')]
+        if (_item){
+          if (_item.up !== undefined) {
+            _up_statements.push(`when email = ${val} then up+${_item.up}`)
+          } else {
+            _up_statements.push(`when email = ${val} then up+0`)
+          }
+          if (_item.down !== undefined) {
+            _down_statements.push(`when email = ${val} then down+${_item.down}`)
+          } else {
+            _down_statements.push(`when email = ${val} then down+0`)
+          }
+        }
+      })
+      if (!_down_statements.length && !_up_statements.length) {
+        return resolve({
+          success: true,
+          message: '没有需要更新的数据'
+        })
       }
-      if (val.direction.match(/down/gi)) {
-        _down_statements.push(`when email = '${val.email}' then down+${val.value}`)
+      if (_up_statements.length) {
+        _up_statements = `up=( case ${_up_statements.join(' ')} end )`
+      } else {
+        _up_statements = ``
       }
-      _emails.push(`'${val.email}'`)
-    })
-    _emails = `email in(${Array.from(new Set(_emails)).join(',')})`
-    _up_statements = `up=( case ${_up_statements.join(' ')} end )`
-    _down_statements = `down=( case ${_down_statements.join(' ')} end )`
-    let _setColumns = [_up_statements, _down_statements].join(',')
-    let _sql = `update clients set ${_setColumns} where ${_emails};`
-    logger.info('更新流量数据')
-    logger.info(_sql)
-    const _res = await queryPromise(_sql)
-    resolve(_res)
+      if (_down_statements.length) {
+        _down_statements = `down=( case ${_down_statements.join(' ')} end )`
+      } else {
+        _down_statements = ``
+      }
+      _emails = `email in(${Array.from(new Set(_emails)).join(',')})`
+      
+      let _setColumns = [_up_statements, _down_statements].join(',')
+      let _sql = `update clients set ${_setColumns} where ${_emails};`
+      logger.info('更新流量数据')
+      logger.info(_sql)
+      const _res = await queryPromise(_sql)
+      resolve(_res)
+    } else {
+      logger.info('没有需要更新的流量统计数据')
+      resolve({
+        success: true,
+        message: '没有需要更新的流量统计数据'
+      })
+    }
+    
   })
 }
 
@@ -557,7 +611,7 @@ function restartService(params) {
       }
     } catch(e) {
       logger.info('重启服务catch异常')
-      logger.info(JSON.stringify(e))
+      logger.info(e.message)
       resolve({
         success: false,
         data: e,
@@ -579,14 +633,14 @@ function setDailySchedule() {
     schedule.scheduleJob(_time,  async ()=>{
       logger.info('统计流量计划任务')
       await statisticTraffic(true)
-      const {success, result} = findOutOverTraffic()
+      const {success, result} = await findOutOverTraffic()
       if (success && result) {
         logger.info('需要更新xray配置文件')
         restartService()
       }
     });
   } catch(e) {
-    logger.info(`error dailyScheduleAction ${JSON.stringify(e)}`)
+    logger.info(`error dailyScheduleAction ${e.message}`)
   }
 }
 
