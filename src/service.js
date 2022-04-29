@@ -121,11 +121,7 @@ function execCommand(command) {
       exec(command, (error, stdout, stderr) => {
         if (error) {
           // console.error(`exec error: ${error}`);
-          resolve({
-            success: false,
-            data: error,
-            message: `exec command failure`
-          })
+          throw new Error(`exec command failure`)
         }
         resolve({
           success: true,
@@ -139,7 +135,9 @@ function execCommand(command) {
     } catch(err) {
       resolve({
         success: false,
-        message: `error : ${JSON.stringify(err)}`
+        data: err,
+        error: true,
+        message: `execCommand error: ${err.message}`
       })
     }
   })
@@ -400,177 +398,193 @@ async function deleteClient({id, email}) {
   })
 }
 
-function findOutOverTraffic() {
+function findOutOverdueClient() {
   return new Promise(async resolve => {
-    const _current_file = path.resolve(`current-clients.json`);
-    if (fs.existsSync(_current_file)) {
-      let _current_clients = fs.readFileSync(_current_file, {encoding:'utf-8'});
-      _current_clients = JSON.parse(_current_clients)
-      let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
-      const {success, data} = await queryPromise(_sql)
-      if (!success) {
-        logger.info(`查询可用账号出错`)
+    let  _result = {
+      success: false,
+      data: null,
+      message: ''
+    }
+    try {
+      const _current_file = path.resolve(`current-clients.json`);
+      if (fs.existsSync(_current_file)) {
+        let _current_clients = fs.readFileSync(_current_file, {encoding:'utf-8'});
+        _current_clients = JSON.parse(_current_clients)
+        let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down or now() > off_date;`
+        const {success, data} = await queryPromise(_sql)
+        if (!success) {
+          logger.info(`查询可用账号出错`)
+          throw new Error(`查询可用账号出错`)
+        }
+        let _current_emails = _current_clients.map(val => val.email).sort();
+        let _overdue_emails = data.map(val => val.email).sort()
+        logger.info('比较账号是否一致')
         resolve({
-          success,
-          message: '查询可用账号出错'
+          success: true,
+          data: _overdue_emails,
+          result: JSON.stringify(_current_emails) === JSON.stringify(_overdue_emails)
+        })
+      } else {
+        logger.info('current-clients.json 文件不存在')
+        resolve({
+          success: false,
+          message: 'current-clients.json 文件不存在',
+          result: true
         })
       }
-      let _current_emails = _current_clients.map(val => val.email).sort();
-      let _out_traffic_emails = data.map(val => val.email).sort()
-      logger.info('比较账号是否一致')
-      resolve({
-        success: true,
-        result: JSON.stringify(_current_emails) === JSON.stringify(_out_traffic_emails)
-      })
-    } else {
-      logger.info('current-clients.json 文件不存在')
-      resolve({
-        success: false,
-        message: 'current-clients.json 文件不存在',
-        result: true
-      })
+    } catch(err) {
+      _result.error = true;
+      _result.message = err.message;
+      _result.data = err;
+      return resolve(_result)
     }
   })
 }
 
 async function statisticTraffic(reset=false) {
   return new Promise(async resolve=> {
-    if (!isDevEnv()) {
-      let _reset = reset ? ' -reset' : '' 
-      // xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json
-      const _cmd = `xray api statsquery --server=127.0.0.1:10088${_reset} -pattern "" > xray-stats.json`
-      console.log(_cmd)
-      const {success, data, message} = await execCommand(_cmd)
-      if (!success) {
-        logger.info('统计命令执行出错: [ '+message+' ] '+JSON.stringify(data))
+    try {
+      if (!isDevEnv()) {
+        let _reset = reset ? ' -reset' : '' 
+        // xray api statsquery --server=127.0.0.1:10088 -pattern "" > xray-stats.json
+        const _cmd = `xray api statsquery --server=127.0.0.1:10088${_reset} -pattern "" > xray-stats.json`
+        // console.log(_cmd)
+        const {success, data, message} = await execCommand(_cmd)
+        if (!success) {
+          logger.info(`统计命令执行出错: ${message}`)
+          throw new Error(`统计命令执行出错: ${message}`)
+        }
+      }
+      let _xray_statistic_file = path.resolve('xray-stats.json')
+      if (!fs.existsSync(_xray_statistic_file)) {
+        logger.info(`xray-stats.json 统计文件不存在`)
+        throw new Error('xray-stats.json 统计文件不存在')
+      }
+      let _statObj = fs.readFileSync(_xray_statistic_file, {encoding: 'utf-8'});
+      // logger.info(_statObj)
+      _statObj = JSON.parse(_statObj)
+      if (!_statObj || !_statObj.stat) {
+        logger.info(`统计流量数据体缺失stat对象`)
+        throw new Error('统计流量数据体缺失stat对象')
+      }
+      let _obj = _statObj.stat.map(val => {
+        if (val.name && val.name.match(/user/gi) && val.value) {
+          let _value = Number(val.value)
+          _value = isNaN(_value) ? 0 : _value;
+          let _name_array = val.name.split('>>>')
+          let _email = _name_array[1]
+          let _direction = _name_array[3]
+          let _tmpObj = {
+            email: _email,
+            direction: _direction,
+            value: _value
+          }
+          return _tmpObj
+        }
+      })
+      _obj = _obj.filter(val=>val!==undefined)
+      // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
+      if (_obj.length) {
+        let _down_statements = []
+        let _up_statements = []
+        let _recombineStatObj = {}
+        let _emails = []
+        _obj.forEach(val => {
+          _recombineStatObj[val.email] = _recombineStatObj[val.email] === undefined ? {} : _recombineStatObj[val.email];
+          let _nums = Number(val.value);
+          _nums = isNaN(_nums) ? 0 : _nums;
+          if (val.direction === 'uplink') {
+            _recombineStatObj[val.email]['up'] = _recombineStatObj[val.email]['up'] === undefined ? _nums : _recombineStatObj[val.email]['up']+_nums
+          }
+          if (val.direction === 'downlink') {
+            _recombineStatObj[val.email]['down'] = _recombineStatObj[val.email]['down'] === undefined ? _nums : _recombineStatObj[val.email]['down']+_nums
+          }
+          _emails.push(`'${val.email}'`)
+        })
+        
+        let _emailSet = Array.from(new Set(_emails)); 
+        _emailSet.forEach(val => {
+          let _item = _recombineStatObj[val.replace(/\'|\"/gi, '')]
+          if (_item){
+            if (_item.up !== undefined) {
+              _up_statements.push(`when email = ${val} then up+${_item.up}`)
+            } else {
+              _up_statements.push(`when email = ${val} then up+0`)
+            }
+            if (_item.down !== undefined) {
+              _down_statements.push(`when email = ${val} then down+${_item.down}`)
+            } else {
+              _down_statements.push(`when email = ${val} then down+0`)
+            }
+          }
+        })
+        if (!_down_statements.length && !_up_statements.length) {
+          return resolve({
+            success: true,
+            message: '没有需要更新的数据'
+          })
+        }
+        if (_up_statements.length) {
+          _up_statements = `up=( case ${_up_statements.join(' ')} end )`
+        } else {
+          _up_statements = ``
+        }
+        if (_down_statements.length) {
+          _down_statements = `down=( case ${_down_statements.join(' ')} end )`
+        } else {
+          _down_statements = ``
+        }
+        _emails = `email in(${Array.from(new Set(_emails)).join(',')})`
+        
+        let _setColumns = [_up_statements, _down_statements].join(',')
+        let _sql = `update clients set ${_setColumns} where ${_emails};`
+        logger.info('更新流量数据')
+        logger.info(_sql)
+        const _res = await queryPromise(_sql)
+        resolve(_res)
+      } else {
+        logger.info('没有需要更新的流量统计数据')
         resolve({
-          success: false,
-          data,
-          message: '统计命令执行出错: '+message
-        })
-      }
-    }
-    let _xray_statistic_file = path.resolve('xray-stats.json')
-    if (!fs.existsSync(_xray_statistic_file)) {
-      logger.info(`xray-stats.json 统计文件不存在`)
-      resolve({
-        success: false,
-        message: 'xray-stats.json 统计文件不存在'
-      })
-    }
-    let _statObj = fs.readFileSync(_xray_statistic_file, {encoding: 'utf-8'});
-    // logger.info(_statObj)
-    _statObj = JSON.parse(_statObj)
-    if (!_statObj || !_statObj.stat) {
-      logger.info(`统计流量数据体缺失stat`)
-      return resolve({
-        success: false,
-        message: '统计流量数据体缺失stat'
-      })
-    }
-    let _obj = _statObj.stat.map(val => {
-      if (val.name && val.name.match(/user/gi) && val.value) {
-        let _value = Number(val.value)
-        _value = isNaN(_value) ? 0 : _value;
-        let _name_array = val.name.split('>>>')
-        let _email = _name_array[1]
-        let _direction = _name_array[3]
-        let _tmpObj = {
-          email: _email,
-          direction: _direction,
-          value: _value
-        }
-        return _tmpObj
-      }
-    })
-    _obj = _obj.filter(val=>val!==undefined)
-    // update vpndb.clients set up=(case when email = 'aquirjan@icloud.com' then up+1 end) where email in('wing.free0@gmail.com', 'aquirjan@icloud.com');
-    if (_obj.length) {
-      let _down_statements = []
-      let _up_statements = []
-      let _recombineStatObj = {}
-      let _emails = []
-      _obj.forEach(val => {
-        _recombineStatObj[val.email] = _recombineStatObj[val.email] === undefined ? {} : _recombineStatObj[val.email];
-        let _nums = Number(val.value);
-        _nums = isNaN(_nums) ? 0 : _nums;
-        if (val.direction === 'uplink') {
-          _recombineStatObj[val.email]['up'] = _recombineStatObj[val.email]['up'] === undefined ? _nums : _recombineStatObj[val.email]['up']+_nums
-        }
-        if (val.direction === 'downlink') {
-          _recombineStatObj[val.email]['down'] = _recombineStatObj[val.email]['down'] === undefined ? _nums : _recombineStatObj[val.email]['down']+_nums
-        }
-        _emails.push(`'${val.email}'`)
-      })
-      
-      let _emailSet = Array.from(new Set(_emails)); 
-      _emailSet.forEach(val => {
-        let _item = _recombineStatObj[val.replace(/\'|\"/gi, '')]
-        if (_item){
-          if (_item.up !== undefined) {
-            _up_statements.push(`when email = ${val} then up+${_item.up}`)
-          } else {
-            _up_statements.push(`when email = ${val} then up+0`)
-          }
-          if (_item.down !== undefined) {
-            _down_statements.push(`when email = ${val} then down+${_item.down}`)
-          } else {
-            _down_statements.push(`when email = ${val} then down+0`)
-          }
-        }
-      })
-      if (!_down_statements.length && !_up_statements.length) {
-        return resolve({
           success: true,
-          message: '没有需要更新的数据'
+          message: '没有需要更新的流量统计数据'
         })
       }
-      if (_up_statements.length) {
-        _up_statements = `up=( case ${_up_statements.join(' ')} end )`
-      } else {
-        _up_statements = ``
-      }
-      if (_down_statements.length) {
-        _down_statements = `down=( case ${_down_statements.join(' ')} end )`
-      } else {
-        _down_statements = ``
-      }
-      _emails = `email in(${Array.from(new Set(_emails)).join(',')})`
-      
-      let _setColumns = [_up_statements, _down_statements].join(',')
-      let _sql = `update clients set ${_setColumns} where ${_emails};`
-      logger.info('更新流量数据')
-      logger.info(_sql)
-      const _res = await queryPromise(_sql)
-      resolve(_res)
-    } else {
-      logger.info('没有需要更新的流量统计数据')
+    } catch(err) {
+      logger.info('statisticTraffic Error: '+err.message)
       resolve({
-        success: true,
-        message: '没有需要更新的流量统计数据'
+        success: false,
+        data: err,
+        error: true,
+        message: `statisticTraffic Error: ${err.message}`
       })
     }
-    
   })
 }
 
 function resetTraffic({email, id}) {
   return new Promise(async resolve => {
-    if (!isDevEnv()) {
-      const {success, data} = await execCommand(`xray api statsquery --server=127.0.0.1:10088 -pattern "${email}" -reset`)
-      if (!success) {
-        logger.info(`重置流量命令执行出错`)
-        resolve({
-          success: false,
-          data,
-          message: '重置流量命令执行出错'
-        })
+    try {
+      if (!isDevEnv()) {
+        const {success, data, message} = await execCommand(`xray api statsquery --server=127.0.0.1:10088 -pattern "${email}" -reset`)
+        if (!success) {
+          logger.info(`重置流量命令执行出错: ${message}`)
+          throw new Error(`重置流量命令执行出错: ${message}`)
+        }
       }
+      logger.info(`重置流量命令成功`)
+      let _sql = `update clients set up=0, down=0 where email='${email}' and id=${id};`
+      const _res = await queryPromise(_sql)
+      logger.info(`重置流量${_res.success?'成功': '失败'}`)
+      resolve(_res)
+    } catch(err) {
+      logger.info('resetTraffic Error: '+err.message)
+      resolve({
+        success: false,
+        data: err,
+        error: true,
+        message: `resetTraffic Error: ${err.message}`
+      })
     }
-    logger.info(`重置流量成功`)
-    let _sql = `update clients set up=0, down=0 where email='${email}' and id=${id};`
-    const _res = await queryPromise(_sql)
-    resolve(_res)
   })
 }
 
@@ -580,42 +594,43 @@ function restartService(params) {
       logger.info('重启服务开始')
       const _res_backupConfigFile = await backupConfigFile()
       if (!_res_backupConfigFile.success) {
-        resolve(_res_backupConfigFile)
+        throw new Error(`${_res_backupConfigFile.message}`)
       }
       const _res_recombine = await recombineConfigFile()
       if (!_res_recombine.success) {
-        resolve(_res_recombine)
+        throw new Error(`${_res_recombine.message}`)
       }
       if (params) {
         const {email, id} = params;
         const _res_resetTraffic = await resetTraffic({email, id})
         if (!_res_resetTraffic.success) {
-          resolve(_res_resetTraffic)
+          throw new Error(`${_res_resetTraffic.message}`)
         }
       }
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
-        logger.info('重启服务成功')
-        if (_res_changeConfig.success) {
-          const _res = execCommand(`systemctl restart xray`)
-          return resolve(_res)
-        } else {
-          return resolve(_res_changeConfig)
+        logger.info(`覆盖xray配置文件${_res_changeConfig.success?'成功':'失败'}`)
+        if (!_res_changeConfig.success) {
+          throw new Error(`覆盖xray配置文件失败`)
         }
+        const _res = await execCommand(`systemctl restart xray`)
+        logger.info(`重启xray服务结果：${_res.success?'成功': '失败'}, ${_res.message}`)
+        return resolve(_res)
       } else {
-        logger.info('重启服务成功')
+        logger.info('开发环境，重启服务成功')
         resolve({
           success: true,
-          message: '重启服务成功'
+          message: '开发环境，重启服务成功'
         })
       }
-    } catch(e) {
+    } catch(err) {
       logger.info('重启服务catch异常')
-      logger.info(e.message)
+      logger.info(err.message)
       resolve({
         success: false,
-        data: e,
-        message: '重启服务catch异常'
+        data: err,
+        error: true,
+        message: `重启服务catch异常: ${err.message}`
       })
     }
   })
@@ -633,10 +648,16 @@ function setDailySchedule() {
     schedule.scheduleJob(_time,  async ()=>{
       logger.info('统计流量计划任务')
       await statisticTraffic(true)
-      const {success, result} = await findOutOverTraffic()
+      const {success, result, message} = await findOutOverdueClient()
       if (success && result) {
-        logger.info('需要更新xray配置文件')
-        restartService()
+        if (result) {
+          logger.info('需要更新xray配置文件')
+          restartService()
+        } else {
+          logger.info('不需要更新xray配置文件')
+        }
+      } else {
+        logger.info(message)
       }
     });
   } catch(e) {
@@ -649,15 +670,15 @@ function dailySchedule() {
     try {
       const _res_backupDataBase = await backupDataBase()
       if (!_res_backupDataBase.success) {
-        resolve(_res_backupDataBase)
+        throw new Error(_res_backupDataBase.message)
       }
       const _res_statisticTraffic = await statisticTraffic(true)
       if (!_res_statisticTraffic.success) {
-        resolve(_res_statisticTraffic)
+        throw new Error(_res_statisticTraffic.message)
       }
       if (!isDevEnv()) {
         const _res_restartService = await restartService()
-        _res_restartService.message = _res_restartService.message +' 每日任务执行成功'
+        _res_restartService.message =  '每日任务执行结果：'+(_res_restartService.success ? '成功' : '失败')+ ' '+_res_restartService.message
         resolve(_res_restartService)
       } else {
         resolve({
@@ -725,48 +746,56 @@ async function autoSetupSchedule() {
 
 function recombineConfigFile() {
   return new Promise(async resolve => {
-    const _tplConfig = path.resolve('xray-config-template.json');
-    console.log('重组配置文件')
-    if (!fs.existsSync(_tplConfig)) {
-      logger.info(`模板配置文件丢失`)
-      resolve({
-        success: false,
-        message: '模板配置文件丢失'
+    let _result = {
+      success: false,
+      data: null,
+      message: ''
+    }
+    try {
+      const _tplConfig = path.resolve('xray-config-template.json');
+      console.log('重组配置文件')
+      if (!fs.existsSync(_tplConfig)) {
+        logger.info(`配置模板文件丢失`)
+        throw new Error(`配置模板文件丢失`)
+      }
+      
+      let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
+      const {success, data} = await queryPromise(_sql)
+      if (!success) {
+        logger.info(`查询可用账号出错`)
+        throw new Error(`查询可用账号出错`)
+      }
+      if (!data || !data.length) {
+        _result.success = true;
+        _result.data = data;
+        _result.message = '没有可用账号'
+        return resolve(_result)
+      }
+      let _clients = data.map(val => {
+        return {
+          "id": val.uuid,
+          "level": 0,
+          "flow": "xtls-rprx-direct",
+          "email": val.email
+        }
       })
+      let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
+      _configObj = JSON.parse(_configObj)
+      _configObj.inbounds[0].settings['clients'] = _clients
+      fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients), {encoding: 'utf-8'})
+      fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
+      _result.success = true;
+      _result.message = '重组配置文件成功';
+      return resolve(_result)
+    } catch(err) {
+      _result.success = false;
+      _result.error = true;
+      _result.data = err;
+      _result.message = err.message
+      logger.info(`recombineConfigFile Error: ${err.message}`)
+      resolve(_result)
     }
     
-    let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
-    const {success, data} = await queryPromise(_sql)
-    if (!success) {
-      logger.info(`查询可用账号出错`)
-      resolve({
-        success,
-        message: '查询可用账号出错'
-      })
-    }
-    if (!data || !data.length) {
-      resolve({
-        success,
-        message: '没有可用账号'
-      })
-    }
-    let _clients = data.map(val => {
-      return {
-        "id": val.uuid,
-        "level": 0,
-        "flow": "xtls-rprx-direct",
-        "email": val.email
-      }
-    })
-    let _configObj = fs.readFileSync(_tplConfig,{encoding:'utf-8'})
-    _configObj = JSON.parse(_configObj)
-    _configObj.inbounds[0].settings['clients'] = _clients
-    fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients), {encoding: 'utf-8'})
-    fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
-    resolve({
-      success: true,
-      message: '重组配置文件成功'
-    })
   })
 }
 
