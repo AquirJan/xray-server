@@ -62,20 +62,20 @@ function queryPromise(_sql) {
     try {
       // console.log('请求数据')
       if (!CONNECTION) {
-        throw new Error('no db instance')
+        throw new Error('queryPromise : no db instance')
       }
       CONNECTION.query(_sql, function(err, rows, fields) {
         if (err) {
           throw err
         }
-        resolve({
+        return resolve({
           success: true,
           data: rows,
           message: 'query database success'
         })
       });
     } catch(e) {
-      resolve({
+      return resolve({
         success: false,
         data: e,
         error: true,
@@ -85,32 +85,8 @@ function queryPromise(_sql) {
   })
 }
 
-function mysqlPromise(_sql) {
-  // console.log('请求数据')
-  return new Promise(async (resolve, reject) => {
-    try {
-      const _connect_result = await connectDB();
-      if (!_connect_result || !_connect_result.success) {
-        await closeDB()
-        resolve(_connect_result)
-      }
-      const _result = await queryPromise(_sql)
-      await closeDB()
-      resolve(_result)
-    } catch(err) {
-      resolve({
-        success: false,
-        data: e,
-        error: true,
-        message: `mysqlPromise error: ${e.message}`
-      })
-    }
-  })
-}
-
 exports = module.exports = {
   connectDB,
   closeDB,
   queryPromise,
-  mysqlPromise
 };

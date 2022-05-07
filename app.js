@@ -2,6 +2,7 @@ const express = require('express')
 const app = express()
 const bodyParser = require('body-parser');
 const ENV = process.env.NODE_ENV;
+const setupLogger = require('./src/setupLogger.js')
 
 Date.prototype.format = function (fmt) {
     var o = {
@@ -60,10 +61,6 @@ const {
 } = require('./src/service')
 const PROJECTNAME = '/xray'
 
-initAction();
-setDailySchedule()
-autoSetupSchedule()
-
 app.post(`${PROJECTNAME}/login`, loginCtl)
 app.post(`${PROJECTNAME}/listClients`, verifyTokenMiddle, listClientsCtl)
 app.post(`${PROJECTNAME}/addClient`, verifyTokenMiddle, putClientCtl)
@@ -82,3 +79,14 @@ app.post(`${PROJECTNAME}/testAction`, testActionCtl)
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
+
+const logger = setupLogger()
+initAction().then(res=>{
+    const {success, message} = res;
+    console.log(message)
+    if (success) {
+        // setDailySchedule()
+        autoSetupSchedule()
+    }
+});
+    

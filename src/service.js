@@ -22,7 +22,8 @@ const path = require('path')
 const nodemailer = require("nodemailer");
 const schedule = require('node-schedule');
 const QRCode = require('qrcode')
-const LOGFOLDER = 'logs'
+
+
 let Tokens = []
 const {
   dev,
@@ -30,6 +31,7 @@ const {
 } = require('../configs.js')
 // const nodelogger = require('node-logger')
 let mailerTransporter = undefined;
+const LOGFOLDER = 'logs'
 let logger = undefined;
 let scheduleJobList = {}
 
@@ -41,52 +43,67 @@ function isDevEnv() {
   return ENV !== 'production';
 }
 
-async function initAction() {
-    if (!fs.existsSync(path.resolve(LOGFOLDER))) {
-      fs.mkdirSync(path.resolve(LOGFOLDER))
+function initAction() {
+  return new Promise(async resolve=>{
+    let _result = {
+      success: false,
+      data: null,
+      message: ''
     }
-    const opts = {
-      timestampFormat:'YYYY-MM-DD HH:mm:ss.SSS',
-      errorEventName:'error',
-      logDirectory: path.resolve(LOGFOLDER), // NOTE: folder must exist and be writable...
-      fileNamePattern:'<DATE>.log',
-      dateFormat:'YYYY-MM-DD'
-    };
-    logger = require('simple-node-logger').createRollingFileLogger( opts );
-    // initMailer()
-    // 每日任务
-    // schedule.scheduleJob('0 0 9 * * *', ()=>{
-    //   logger.info('每日任务')
-    //   autoDeleteLog()
-    // });
-    autoDeleteLog()
-    // console.log('连接数据库')
-    const _configs = getConfigs();
-    const _dbset = _configs.database
-    const _fdbset = {
-        host: _dbset.host,
-        user: _dbset.user,
-        password: _dbset.password,
-        port: _dbset.port
-    };
-    await connectDB(_fdbset)
-    const _cdbres = await queryPromise(CREATEDBSQL)
-    logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
-    await closeDB()
-    const _resSheet = await connectDB()
-    if (_resSheet.success) {
-        for (let i = 0; i < INITSQLS.length; i++) {
-            const _res = await queryPromise(INITSQLS[i])
-            logger.info(`执行自动创建${i}表${_res.success?'成功':'失败:'+JSON.stringify(_res.data)}`)
-            if (!_res.success) {
-              break;
-            }
+    try {
+      if (!fs.existsSync(path.resolve(LOGFOLDER))) {
+        fs.mkdirSync(path.resolve(LOGFOLDER))
+      }
+      const opts = {
+        timestampFormat:'YYYY-MM-DD HH:mm:ss.SSS',
+        errorEventName:'error',
+        logDirectory: path.resolve(LOGFOLDER), // NOTE: folder must exist and be writable...
+        fileNamePattern:'<DATE>.log',
+        dateFormat:'YYYY-MM-DD'
+      };
+      logger = require('simple-node-logger').createRollingFileLogger( opts );
+      // initMailer()
+      // 每日任务
+      // schedule.scheduleJob('0 0 9 * * *', ()=>{
+      //   logger.info('每日任务')
+      //   autoDeleteLog()
+      // });
+      autoDeleteLog()
+      // console.log('连接数据库')
+      const _configs = getConfigs();
+      const _dbset = _configs.database
+      const _fdbset = {
+          host: _dbset.host,
+          user: _dbset.user,
+          password: _dbset.password,
+          port: _dbset.port
+      };
+      await connectDB(_fdbset)
+      const _cdbres = await queryPromise(CREATEDBSQL)
+      console.log(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
+      logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
+      await closeDB()
+      const _resSheet = await connectDB()
+      if (_resSheet.success) {
+        for await (const [index, item] of INITSQLS.entries()) {
+          const _res = await queryPromise(item)
+          logger.info(`执行自动创建${index}表${_res.success?'成功':'失败:'+JSON.stringify(_res.data)}`)
+          if (!_res.success) {
+            break;
+          }
         }
-        // await closeDB()
+      }
+      if (!isDevEnv()) {
+        recombineConfigFile()
+      }
+      _result.success = true;
+      _result.mesasge = '初始化完成'
+      resolve(_result)
+    } catch(err) {
+      _result.message = err.message
+      resolve(_result)
     }
-    if (!isDevEnv()) {
-      recombineConfigFile()
-    }
+  })
 }
 
 const initMailer = async function() {
@@ -242,8 +259,8 @@ function login({name, password}) {
         Tokens.splice(_matchUserIndex, 1)
       } 
       const _offtime = (new Date()).getTime() + 86400 * 1000 * 2 // token有效期2天
-      await queryPromise(`update users set lastTime = '${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', offTime = '${(new Date(_offtime)).format('yyyy-MM-dd hh:mm:ss')}' where id = ${_user.id}`)
-      const _token = (Buffer.from(JSON.stringify({"name":name, "offTime": _offtime}))).toString('base64')
+      await queryPromise(`update users set last_time='${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', off_time='${(new Date(_offtime)).format('yyyy-MM-dd hh:mm:ss')}' where id=${_user.id}`)
+      const _token = (Buffer.from(JSON.stringify({"name":name, "off_time": _offtime}))).toString('base64')
       Tokens.push({
         token: _token,
         name: name,
@@ -303,55 +320,84 @@ function verifyToken(_realToken) {
   })
 }
 
+function getRemainTraffic(id) {
+  return new Promise(async resolve=>{
+    try {
+      if (!id) {
+        throw new Error('miss necessary param [id]')
+      }
+      let _sql = `select * from clients where id=${id}`
+      const _res = await queryPromise(_sql)
+      if (!_res.success) {
+        throw new Error(`getRemainTraffic db query error: ${_res.message}`)
+      }
+      if (!_res.data || !_res.data.length) {
+        throw new Error(`getRemainTraffic db query error no datas: ${_res.message}`)
+      }
+      let _data = _res?.data?.[0]
+      // console.log(_data)
+      let _traffic = _data.traffic*Math.pow(1024, 3)
+      let _remain = _traffic - (_data.up+_data.down)
+      _remain = _remain > 0 ? -_remain : 0
+      resolve({
+        success: true,
+        data: _remain,
+        message: '查询成功'
+      })
+    } catch(err) {
+      resolve({
+        success: false,
+        error: true,
+        data: err,
+        message: err.message
+      })
+    }
+  })
+}
+
 function setupClientSchedule({email, off_date, id}) {
-  if ((new Date().getTime()) > (new Date(off_date).getTime())) {
+  let _off_date = new Date(off_date);
+  if ((Date.now()) > (new Date(off_date).getTime())) {
     return;
   }
   if (!scheduleJobList) {
     scheduleJobList = {}
   }
-  // console.log(`${email} setup off_date schedule action`)
+  
+  // schedule 功能对应时间点参数（秒，分，时，日，月，星期）
+  let _scheduleTime = `${_off_date.format('ss')} ${_off_date.format('mm')} ${_off_date.format('hh')} ${_off_date.format('dd')} */1 *`
+  console.log(`${email} setup off_date schedule action`)
+  console.log(_scheduleTime)
+  if (isDevEnv()) {
+    _scheduleTime = `00 * * * * *`
+  }
+  console.log(_scheduleTime)
   const _scheduleName = email.replace(/\.|\@/gi, '_')
-  const _scheduleNameDaily = `${_scheduleName}_daily`
+  console.log(_scheduleName)
+  // const _scheduleNameDaily = `${_scheduleName}_daily`
   if (scheduleJobList[_scheduleName]){
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
   }
-  if (scheduleJobList[_scheduleNameDaily]) {
-    scheduleJobList[_scheduleNameDaily].cancel()
-    delete scheduleJobList[_scheduleNameDaily];
-  }
-  const newScheduleJob = schedule.scheduleJob(off_date, ()=>{
+  const newScheduleJob = schedule.scheduleJob(_scheduleTime, async ()=>{
     // console.log(`${email} excute off_date schedule action`)
-    if (scheduleJobList[_scheduleNameDaily]) {
-      scheduleJobList[_scheduleNameDaily].cancel()
-      delete scheduleJobList[_scheduleNameDaily];
-    }
-    restartService({email, id})
-  })
-  scheduleJobList[_scheduleName] = newScheduleJob
-
-  let _odDateObj = new Date(off_date)
-  let _nowo = new Date()
-  let _nowoPlus = new Date(_nowo.setMonth(_nowo.getMonth()+1))
-  if ((_nowoPlus.getTime()) >= (_odDateObj.getTime())) {
-    return;
-  }
-  // console.log(`${email} setup daily schedule action`)
-  const _scheduleTime = `${_odDateObj.getSeconds()} ${_odDateObj.getMinutes()} ${_odDateObj.getHours()} ${_odDateObj.getDate()} * *`
-  const _accountDaily = schedule.scheduleJob(_scheduleTime, async ()=>{
-    // console.log(`${email} excute daily schedule action`)
-    await restartService({email, id})
-    let _now = new Date()
-    let _nowPlus = new Date(_now.setMonth(_now.getMonth()+1))
-    if (_nowPlus.getTime() >= _odDateObj.getTime()) {
+    const _remainTrafficRes = await getRemainTraffic(id)
+    console.log(`\n${email} ${JSON.stringify(_remainTrafficRes)}`)
+    _remainTraffic = _remainTrafficRes?.data || 0
+    console.log(`${email} 账号剩余流量：${_remainTraffic}`)
+    logger.info(`${email} 账号剩余流量：${_remainTraffic}`)
+    restartService({email, id, remainTraffic: _remainTraffic})
+    console.log(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
+    logger.info(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
+    if ((new Date().format('MM')) >= (new Date(off_date).format('MM'))) {
       if (scheduleJobList[_scheduleNameDaily]) {
+        logger.info(`执行到期注销计划任务`)
         scheduleJobList[_scheduleNameDaily].cancel()
         delete scheduleJobList[_scheduleNameDaily];
       }
     }
   })
-  scheduleJobList[_scheduleNameDaily] = _accountDaily
+  scheduleJobList[_scheduleName] = newScheduleJob
 }
 
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
@@ -561,7 +607,7 @@ async function statisticTraffic(reset=false) {
   })
 }
 
-function resetTraffic({email, id}) {
+function resetTraffic({email, id, remainTraffic=0}) {
   return new Promise(async resolve => {
     try {
       if (!isDevEnv()) {
@@ -571,9 +617,11 @@ function resetTraffic({email, id}) {
           throw new Error(`重置流量命令执行出错: ${message}`)
         }
       }
+      console.log(`重置流量命令成功`)
       logger.info(`重置流量命令成功`)
-      let _sql = `update clients set up=0, down=0 where email='${email}' and id=${id};`
+      let _sql = `update clients set up=0, down=${remainTraffic} where email='${email}' and id=${id};`
       const _res = await queryPromise(_sql)
+      console.log(`重置流量${_res.success?'成功': '失败'}`)
       logger.info(`重置流量${_res.success?'成功': '失败'}`)
       resolve(_res)
     } catch(err) {
@@ -601,8 +649,8 @@ function restartService(params) {
         throw new Error(`${_res_recombine.message}`)
       }
       if (params) {
-        const {email, id} = params;
-        const _res_resetTraffic = await resetTraffic({email, id})
+        const {email, id, remainTraffic} = params;
+        const _res_resetTraffic = await resetTraffic({email, id, remainTraffic})
         if (!_res_resetTraffic.success) {
           throw new Error(`${_res_resetTraffic.message}`)
         }
@@ -644,7 +692,7 @@ function setDailySchedule() {
       //删除日志文件
       autoDeleteLog();
     });
-    let _time = isDevEnv() ? '0 */10 * * * *' : '0 0 */2 * * *';
+    let _time = isDevEnv() ? '0 */10 * * * *' : '0 0 */1 * * *';
     schedule.scheduleJob(_time,  async ()=>{
       logger.info('统计流量计划任务')
       await statisticTraffic(true)
@@ -698,50 +746,72 @@ function dailySchedule() {
 
 function backupDataBase(){
   return new Promise(async resolve => {
-    const {database} = getConfigs()
-    const {success, data, message} = await execCommand(`mysqldump -u${database.user} -p${database.password} ${database.database} > ${database.database}_backup.sql`)
-    resolve({
-      success,
-      data,
-      message: success ? '备份数据库成功' : '备份数据库出错: '+ message
-    })
+    try {
+      const {database} = getConfigs()
+      const {success, data, message} = await execCommand(`mysqldump -u${database.user} -p${database.password} ${database.database} > ${database.database}_backup.sql`)
+      resolve({
+        success,
+        data,
+        message: success ? '备份数据库成功' : '备份数据库出错: '+ message
+      })
+    } catch(err) {
+      resolve({
+        success: false,
+        error: true,
+        data: err,
+        message: '备份数据库异常: '+ err.message
+      })
+    }
+    
   })
 }
 
 function backupConfigFile(){
   return new Promise(async resolve => {
-    let _path = `/usr/local/etc/xray/config.json`
-    if (isDevEnv()) {
-      _path = './xray-config.json'
-    }
-    console.log('备份配置文件')
-    const _configFile = path.resolve(_path)
-    if (!fs.existsSync(_configFile)){
+    try {
+      let _path = `/usr/local/etc/xray/config.json`
+      if (isDevEnv()) {
+        _path = './xray-config.json'
+      }
+      logger.info('备份配置文件')
+      const _configFile = path.resolve(_path)
+      if (!fs.existsSync(_configFile)){
+        throw new Error('需要备份的配置文件不存在')
+      }
+      const {success, data, message} = await execCommand(`cp ${_path} ./xray-config_backup.json`)
+      resolve({
+        success,
+        data,
+        message: success ? '备份配置文件成功' : '备份配置文件出错: '+message
+      })
+    } catch(err) {
       resolve({
         success: false,
-        message: '需要备份的配置文件不存在'
+        data: err,
+        error: true,
+        message: '备份配置文件异常: '+err.message
       })
     }
-    const {success, data, message} = await execCommand(`cp ${_path} ./xray-config_backup.json`)
-    resolve({
-      success,
-      data,
-      message: success ? '备份配置文件成功' : '备份配置文件出错: '+message
-    })
   })
 }
 
 async function autoSetupSchedule() {
-  let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
-  const {success, data} = await queryPromise(_sql)
-  if (!success || !data || !data.length) {
-    return;
+  try {
+    console.log(`run autoSetupSchedule`)
+    let _sql = `SELECT * FROM clients where off_date > now();`
+    const {success, data} = await queryPromise(_sql)
+    if (!success || !data || !data.length) {
+      console.log(`没有需要设定定时任务的client`)
+      logger.info(`没有需要设定定时任务的client`)
+      return;
+    }
+    for (let item of data) {
+      setupClientSchedule(item)
+    }
+  } catch(err) {
+    console.log('autoSetupSchedule Error: '+err.message)
+    logger.info('autoSetupSchedule Error: '+err.message)
   }
-  // console.log(`autoSetupSchedule`)
-  // console.log(data)
-  data.forEach(val => {
-    setupClientSchedule(val)
-  })
 }
 
 function recombineConfigFile() {
