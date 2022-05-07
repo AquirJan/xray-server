@@ -456,7 +456,7 @@ function findOutOverdueClient() {
       if (fs.existsSync(_current_file)) {
         let _current_clients = fs.readFileSync(_current_file, {encoding:'utf-8'});
         _current_clients = JSON.parse(_current_clients)
-        let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down or now() > off_date;`
+        let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
         const {success, data} = await queryPromise(_sql)
         if (!success) {
           logger.info(`查询可用账号出错`)

@@ -85,7 +85,7 @@ initAction().then(res=>{
     const {success, message} = res;
     console.log(message)
     if (success) {
-        // setDailySchedule()
+        setDailySchedule()
         autoSetupSchedule()
     }
 });
