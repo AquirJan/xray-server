@@ -389,7 +389,7 @@ function setupClientSchedule({email, off_date, id}) {
     restartService({email, id, remainTraffic: _remainTraffic})
     console.log(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
     logger.info(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
-    if ((new Date().format('yyyy-MM')) === (new Date(off_date).format('yyyy-MM'))) {
+    if ((new Date().format('yyyy-MM')) >= (new Date(off_date).format('yyyy-MM'))) {
       if (scheduleJobList[_scheduleNameDaily]) {
         logger.info(`执行到期注销计划任务`)
         scheduleJobList[_scheduleNameDaily].cancel()
