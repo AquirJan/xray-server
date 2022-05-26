@@ -397,8 +397,8 @@ function setupClientSchedule({email, off_date, id}) {
     console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
     if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
       if (scheduleJobList[_scheduleName]) {
-        console.log(`执行到期注销 ${_scheduleName} 计划任务`)
-        logger.info(`执行到期注销 ${_scheduleName} 计划任务`)
+        console.log(`注销 ${_scheduleName} 计划任务`)
+        logger.info(`注销 ${_scheduleName} 计划任务`)
         scheduleJobList[_scheduleName].cancel()
         delete scheduleJobList[_scheduleName];
       }
@@ -458,9 +458,12 @@ async function deleteClient({id, email}) {
     let _sql = `delete from clients where id=${id};`
     const _res = await queryPromise(_sql)
     if (_res.success) {
-      if (scheduleJobList[email]){
-        scheduleJobList[email].cancel()
-        delete scheduleJobList[email];
+      let _scheduleName = email.replace(/\.|\@/gi, '_')
+      if (scheduleJobList[_scheduleName]){
+        console.log(`撤销 ${_scheduleName} 计划任务`)
+        logger.info(`撤销 ${_scheduleName} 计划任务`)
+        scheduleJobList[_scheduleName].cancel()
+        delete scheduleJobList[_scheduleName];
       }
     }
     resolve(_res)
@@ -821,16 +824,15 @@ function backupConfigFile(){
 async function autoSetupSchedule() {
   try {
     console.log(`run autoSetupSchedule`)
-    let _sql = `SELECT *, off_date FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
+    let _sql = `SELECT *, DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') as off_date_utc FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
     const {success, data} = await queryPromise(_sql)
     if (!success || !data || !data.length) {
       console.log(`没有需要设定定时任务的client`)
       logger.info(`没有需要设定定时任务的client`)
       return;
     }
-    console.log(data)
     for (let item of data) {
-      setupClientSchedule(item)
+      setupClientSchedule({off_date: item.off_date_utc, email:item.email, id: item.id})
     }
   } catch(err) {
     console.log('autoSetupSchedule Error: '+err.message)
