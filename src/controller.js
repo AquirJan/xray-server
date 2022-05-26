@@ -69,16 +69,23 @@ async function listClientsCtl(req, res) {
 
 async function putClientCtl(req, res) {
   const {id, email, uuid, price, off_date, port, remark, traffic, timezone} = req.body
-  const _now = new Date()
+  // const _now = new Date()
   const _port = port ? port : 443;
   const _price = price ? price : 20;
   const _traffic = traffic ? traffic : 20;
-  let _timezoneDirect = Number(timezone) > 0 ? '+' : '-'
-  let _timeDelta = Math.abs(Number(timezone))
-  _timeDelta = _timeDelta > 10 ? `${_timeDelta}:00` : `0${_timeDelta}:00`
-  let _timezoneDelta = `GMT${_timezoneDirect}${_timeDelta}`
-  let _off_date = off_date ? new Date(off_date + ` ${_timezoneDelta}`).utcFormat('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).utcFormat('yyyy/MM/dd hh:mm:ss')
-  
+  // let _timezoneDirect = Number(timezone) > 0 ? '+' : '-'
+  // let _timeDelta = Math.abs(Number(timezone))
+  // _timeDelta = _timeDelta >= 10 ? `${_timeDelta}:00` : `0${_timeDelta}:00`
+  // let _timezoneDelta = `GMT${_timezoneDirect}${_timeDelta}`
+  // let _off_date = off_date ? new Date(off_date + ` ${_timezoneDelta}`).utcFormat('yyyy/MM/dd hh:mm:ss') : new Date(_now.setDate(_now.getDate()+1)).utcFormat('yyyy/MM/dd hh:mm:ss')
+  let _off_date = off_date ? new Date(off_date).utcFormat('yyyy/MM/dd hh:mm:ss') : '';
+  if (!_off_date) {
+    res.send({
+      success: false,
+      message: '请传入off_date'
+    })
+  }
+  console.log(`controler _off_date: ${_off_date}`)
   if (!email) {
     res.send({
       success: false,
@@ -105,7 +112,7 @@ async function putClientCtl(req, res) {
   if (id) {
     _obj['id'] = id;
     _res = await updateClient(_obj);
-    _res['message'] = _res.success ? '更新成功' : '更新失败'
+    _res['message'] = _res.success ? '更新成功' : `更新失败: ${_res.message}`
   } else {
     _res = await detectDuplicateAccount({email, uuid})
     if (_res.success) {

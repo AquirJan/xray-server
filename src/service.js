@@ -211,7 +211,7 @@ function findOutToken(name) {
 
 function listClients({page, size, conditions}) {
   return new Promise(async resolve => {
-    let _sql = [`select * from clients`]
+    let _sql = [`select *, DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') as off_date_utc from clients`]
     const _keyMap = ['email', 'remark', 'off_date', 'uuid', 'port', 'traffic', 'price']
     if (conditions) {
       for (let key in conditions) {
@@ -338,7 +338,7 @@ function getRemainTraffic(id) {
       // console.log(_data)
       let _traffic = _data.traffic*Math.pow(1024, 3)
       let _remain = _traffic - (_data.up+_data.down)
-      _remain = _remain > 0 ? -_remain : 0
+      _remain = _remain > 0 ? - _remain : 0
       resolve({
         success: true,
         data: _remain,
@@ -356,8 +356,14 @@ function getRemainTraffic(id) {
 }
 
 function setupClientSchedule({email, off_date, id}) {
-  let _off_date = new Date(off_date);
-  if ((Date.now()) > (new Date(off_date).getTime())) {
+  console.log(`setupClientSchedule: ${off_date}`)
+  let _off_date = new Date(off_date+' UTC');
+  // console.log(_off_date)
+  let _off_date_ms = new Date(off_date).getTime();
+  let _now_ms = new Date(new Date().utcFormat('yyyy/MM/dd hh:mm:ss')).getTime()
+  console.log(`_off_date_ms: ${_off_date_ms}, _now_ms: ${_now_ms}`)
+  if (_now_ms >= _off_date_ms) {
+    console.log(`${email}, time less than now`)
     return;
   }
   if (!scheduleJobList) {
@@ -365,17 +371,16 @@ function setupClientSchedule({email, off_date, id}) {
   }
   
   // schedule 功能对应时间点参数（秒，分，时，日，月，星期）
-  let _scheduleTime = `${_off_date.format('ss')} ${_off_date.format('mm')} ${_off_date.format('hh')} ${_off_date.format('dd')} */1 *`
+  // let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} */1 * *`
+  let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} ${_off_date.utcFormat('dd')} */1 *`
+
   console.log(`${email} setup off_date schedule action`)
-  console.log(_scheduleTime)
-  if (isDevEnv()) {
-    _scheduleTime = `00 * * * * *`
-  }
-  console.log(_scheduleTime)
   const _scheduleName = email.replace(/\.|\@/gi, '_')
   console.log(_scheduleName)
+  console.log(_scheduleTime)
   // const _scheduleNameDaily = `${_scheduleName}_daily`
   if (scheduleJobList[_scheduleName]){
+    console.log(`cancel ${_scheduleName} schedule job`)
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
   }
@@ -389,11 +394,13 @@ function setupClientSchedule({email, off_date, id}) {
     restartService({email, id, remainTraffic: _remainTraffic})
     console.log(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
     logger.info(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
-    if ((new Date().format('yyyy-MM')) >= (new Date(off_date).format('yyyy-MM'))) {
-      if (scheduleJobList[_scheduleNameDaily]) {
-        logger.info(`执行到期注销计划任务`)
-        scheduleJobList[_scheduleNameDaily].cancel()
-        delete scheduleJobList[_scheduleNameDaily];
+    console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
+    if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
+      if (scheduleJobList[_scheduleName]) {
+        console.log(`执行到期注销 ${_scheduleName} 计划任务`)
+        logger.info(`执行到期注销 ${_scheduleName} 计划任务`)
+        scheduleJobList[_scheduleName].cancel()
+        delete scheduleJobList[_scheduleName];
       }
     }
   })
@@ -402,23 +409,39 @@ function setupClientSchedule({email, off_date, id}) {
 
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
-    let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
-    const _res = await queryPromise(_sql)
-    if (_res.success) {
-      setupClientSchedule({email, off_date, id})
+    try {
+      let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
+      const _res = await queryPromise(_sql)
+      if (_res.success) {
+        setupClientSchedule({email, off_date, id:_res?.data?.insertId})
+      }
+      resolve(_res)
+    } catch(error) {
+      resolve({
+        success: false,
+        message: `addClient error: ${error.mesasge}`
+      })
     }
-    resolve(_res)
   })
 }
 
 async function updateClient({id, email, uuid, port, off_date, price, traffic, remark}){
   return new Promise(async resolve=> {
-    let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
-    const _res = await queryPromise(_sql)
-    if (_res.success) {
-      setupClientSchedule({email, off_date, id})
+    try {
+      let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
+      const _res = await queryPromise(_sql)
+      if (_res.success) {
+        setupClientSchedule({email, off_date, id})
+      }
+      resolve(_res)
+      console.log(`update client message: ${_res.message}`)
+    } catch(error) {
+      console.log(`update client Error: ${error.message}`)
+      resolve({
+        success: false,
+        message: `update client Error: ${error.message}`
+      })
     }
-    resolve(_res)
   })
 }
 
@@ -798,13 +821,14 @@ function backupConfigFile(){
 async function autoSetupSchedule() {
   try {
     console.log(`run autoSetupSchedule`)
-    let _sql = `SELECT * FROM clients where off_date > now();`
+    let _sql = `SELECT *, off_date FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
     const {success, data} = await queryPromise(_sql)
     if (!success || !data || !data.length) {
       console.log(`没有需要设定定时任务的client`)
       logger.info(`没有需要设定定时任务的client`)
       return;
     }
+    console.log(data)
     for (let item of data) {
       setupClientSchedule(item)
     }
