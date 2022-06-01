@@ -211,7 +211,7 @@ function findOutToken(name) {
 
 function listClients({page, size, conditions}) {
   return new Promise(async resolve => {
-    let _sql = [`select *, DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') as off_date_utc from clients`]
+    let _sql = [`select *, DATE_FORMAT(off_date, '%Y/%m/%d %H:%i:%S') as off_date_utc from clients`]
     const _keyMap = ['email', 'remark', 'off_date', 'uuid', 'port', 'traffic', 'price']
     if (conditions) {
       for (let key in conditions) {
@@ -824,7 +824,7 @@ function backupConfigFile(){
 async function autoSetupSchedule() {
   try {
     console.log(`run autoSetupSchedule`)
-    let _sql = `SELECT *, DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') as off_date_utc FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
+    let _sql = `SELECT *, DATE_FORMAT(off_date, '%Y/%m/%d %H:%i:%S') as off_date_utc FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
     const {success, data} = await queryPromise(_sql)
     if (!success || !data || !data.length) {
       console.log(`没有需要设定定时任务的client`)
