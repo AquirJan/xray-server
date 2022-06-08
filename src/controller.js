@@ -21,6 +21,7 @@ const {
   deleteUser,
   dailySchedule,
   queryClientTraffic,
+  gitlabOAuth,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -262,7 +263,14 @@ async function queryClientTrafficCtl(req, res) {
   res.send(_res)
 }
 
+async function createUserCtl(req, res) {
+  console.log(req)
+  const _res = await gitlabOAuth({code:req?.code})
+  res.send(_res)
+}
+
 exports = module.exports = {
+  createUserCtl,
   queryClientTrafficCtl,
   loginCtl,
   restartServiceCtl,

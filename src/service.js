@@ -1058,7 +1058,28 @@ function queryClientTraffic({email}) {
   })
 }
 
+function gitlabOAuth({code}) {
+  return new Promise(resolve=>{
+    try {
+      if (!code) {
+        throw new Error(`miss code param`)
+      }
+      resolve({
+        success: true,
+        message: `gitlabOAuth Success`
+      })
+    } catch(error) {
+      resolve({
+        success: false,
+        data: error,
+        message: `gitlabOAuth Error ${error?.message}`
+      })
+    }
+  })
+}
+
 exports = module.exports = {
+  gitlabOAuth,
   queryClientTraffic,
   genQrcode,
   restartService,

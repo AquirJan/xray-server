@@ -1,4 +1,4 @@
-
+const path = require('path')
 function setupLogger(){
     try {
         const LOGFOLDER = 'logs'

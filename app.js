@@ -51,7 +51,8 @@ const {
     putUserCtl,
     deleteUserCtl,
     genQrcodeCtl,
-    queryClientTrafficCtl
+    queryClientTrafficCtl,
+    createUserCtl
 } = require('./src/controller')
 const {
     initAction,
@@ -75,6 +76,7 @@ app.post(`${PROJECTNAME}/updateUser`, verifyTokenMiddle, putUserCtl)
 app.post(`${PROJECTNAME}/deleteUser`, verifyTokenMiddle, deleteUserCtl)
 app.post(`${PROJECTNAME}/genQrcode`, verifyTokenMiddle, genQrcodeCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
+app.get(`${PROJECTNAME}/create-user`, createUserCtl)
 
 
 const _configs = getConfigs()
