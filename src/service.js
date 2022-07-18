@@ -22,6 +22,7 @@ const path = require('path')
 const nodemailer = require("nodemailer");
 const schedule = require('node-schedule');
 const QRCode = require('qrcode')
+const axios = require('axios')
 
 
 let Tokens = []
@@ -211,47 +212,53 @@ function findOutToken(name) {
 
 function listClients({page, size, conditions}) {
   return new Promise(async resolve => {
-    let _sql = [`select *, DATE_FORMAT(off_date, '%Y/%m/%d %H:%i:%S') as off_date_utc from clients`]
-    const _keyMap = ['email', 'remark', 'off_date', 'uuid', 'port', 'traffic', 'price']
-    if (conditions) {
-      for (let key in conditions) {
-        if (_keyMap.includes(key)) {
-          if (_sql.length === 1) {
-            _sql.push('where')
-          } else {
-            _sql.push('or')
+    try {
+      let _sql = [`select *, DATE_FORMAT(off_date, '%Y/%m/%d %H:%i:%S') as off_date_utc from clients`]
+      const _keyMap = ['email', 'remark', 'off_date', 'uuid', 'port', 'traffic', 'price']
+      if (conditions) {
+        for (let key in conditions) {
+          if (_keyMap.includes(key)) {
+            if (_sql.length === 1) {
+              _sql.push('where')
+            } else {
+              _sql.push('or')
+            }
+            _sql.push(`${key} like '%${conditions[key]}%'`)
           }
-          _sql.push(`${key} like '%${conditions[key]}%'`)
         }
       }
+      _sql.push(`order by create_time desc limit ${size} offset ${(page-1)*size};`)
+      _sql = _sql.join(' ')
+      const _res = await queryPromise(_sql)
+      return resolve(_res)
+    } catch(error) {
+      return resolve({
+        success: true,
+        error: true,
+        data: error,
+        message: error.message
+      })
     }
-    _sql.push(`order by create_time desc limit ${size} offset ${(page-1)*size};`)
-    _sql = _sql.join(' ')
-    const _res = await queryPromise(_sql)
-    resolve(_res)
   })
 }
 
 function login({name, password}) {
   return new Promise(async resolve => {
-    const { data, message, success} = await queryPromise(`select * from users where name = '${name}'`)
-    if (!success) {
-      resolve({
-        success: false, 
-        message, 
-        data
-      })
-      return;
-    }
-    if (!data || !data.length) {
-      resolve({
-        success: false,
-        message: `login failure : can not found user [${name}]`
-      })
-      return;
-    }
-    const _user = data[0];
-    if (password === _user.passwd) {
+    try {
+      const { data, message, success} = await queryPromise(`select * from users where name = '${name}'`)
+      if (!success) {
+        throw new Error(`login failure : ${message}`)
+      }
+      if (!data || !data.length) {
+        throw new Error(`login failure : can not found user [${name}]`)
+      }
+      const _user = data?.[0];
+      if (!_user) {
+        throw new Error('login failure: user not exist')
+      }
+      if (password !== _user.passwd) {
+        throw new Error('login failure: password error')
+      }
       const _matchUserIndex = findOutToken(name)
       if (_matchUserIndex !== undefined) {
         // 触发单点登陆/另一台机器登陆/删除匹配信息
@@ -271,11 +278,12 @@ function login({name, password}) {
         success: true,
         message:  'login success'
       })
-      return;
-    } else {
-      resolve({
+    } catch(error) {
+      return resolve ({
         success: false,
-        message:  'login failure: password error'
+        error: true,
+        data: error,
+        message: error.message
       })
     }
   })
@@ -472,11 +480,6 @@ async function deleteClient({id, email}) {
 
 function findOutOverdueClient() {
   return new Promise(async resolve => {
-    let  _result = {
-      success: false,
-      data: null,
-      message: ''
-    }
     try {
       const _current_file = path.resolve(`current-clients.json`);
       if (fs.existsSync(_current_file)) {
@@ -494,7 +497,8 @@ function findOutOverdueClient() {
         resolve({
           success: true,
           data: _overdue_emails,
-          result: JSON.stringify(_current_emails) === JSON.stringify(_overdue_emails)
+          result: JSON.stringify(_current_emails) === JSON.stringify(_overdue_emails),
+          message: `账号比较完成`
         })
       } else {
         logger.info('current-clients.json 文件不存在')
@@ -505,10 +509,12 @@ function findOutOverdueClient() {
         })
       }
     } catch(err) {
-      _result.error = true;
-      _result.message = err.message;
-      _result.data = err;
-      return resolve(_result)
+      return resolve({
+        success: false,
+        error: true,
+        data: err,
+        message: err.message
+      })
     }
   })
 }
@@ -682,7 +688,7 @@ function restartService(params) {
         }
       }
       if (!isDevEnv()) {
-        const _res_changeConfig = await execCommand(`cp xray-config.json /usr/local/etc/xray/config.json`)
+        const _res_changeConfig = await execCommand(`cp ./xray-config.json /usr/local/etc/xray/config.json`)
         logger.info(`覆盖xray配置文件${_res_changeConfig.success?'成功':'失败'}`)
         if (!_res_changeConfig.success) {
           throw new Error(`覆盖xray配置文件失败`)
@@ -724,7 +730,7 @@ function setDailySchedule() {
       await statisticTraffic(true)
       const {success, result, message} = await findOutOverdueClient()
       if (success && result) {
-        if (result) {
+        if (!result) {
           logger.info('需要更新xray配置文件')
           restartService()
         } else {
@@ -1052,34 +1058,91 @@ function queryClientTraffic({email}) {
       resolve({
         success: false,
         data: err,
-        message: `查询 ${email} 流量异常`
+        message: `查询 ${email} 流量异常: ${err.message}`
       })
     }
   })
 }
 
-function gitlabOAuth({code}) {
-  return new Promise(resolve=>{
+function checkUserExist(name) {
+  return new Promise(async resolve => {
+    try {
+      if (!name) {
+        throw new Error(`请传入name参数`)
+      }
+      let _sql = `select * from users where name='${name}'`
+      const {success, data} = await queryPromise(_sql)
+      if (data && data.length) {
+        resolve({
+          success,
+          data: data[0],
+          message: success ? `查询 ${email} 流量成功` : `查询 ${email} 流量失败`
+        })
+      } else {
+        resolve({
+          success,
+          data,
+          message: `没有 ${email} 的相关信息`
+        })
+      }
+    } catch(err) {
+      resolve({
+        success: false,
+        data: err,
+        message: `查询 ${name} 账户异常：${err.message}`
+      })
+    }
+  })
+}
+
+function gitHubOAuth({code}) {
+  return new Promise(async resolve=>{
     try {
       if (!code) {
         throw new Error(`miss code param`)
       }
+      const clientID = '4654197a939c1a27bd9e'
+      const clientSecret = '1a95e36581e43b844feb936013b55f3743bed056'
+      
+      const tokenResponse = await axios({
+        method: 'post',
+        url: `https://github.com/login/oauth/access_token?client_id=${clientID}&client_secret=${clientSecret}&code=${code}`,
+        headers: {
+          accept: 'application/json'
+        },
+        timeout: 60*1000
+      });
+      const accessToken = tokenResponse?.data?.access_token;
+      if (!accessToken) {
+        throw new Error('access token Error')
+      }
+      const result = await axios({
+        method: 'get',
+        url: `https://api.github.com/user`,
+        headers: {
+          accept: 'application/json',
+          Authorization: `token ${accessToken}`
+        },
+        timeout: 60*1000
+      });
       resolve({
         success: true,
-        message: `gitlabOAuth Success`
+        data: result?.data,
+        message: `githubOAuth Success`
       })
     } catch(error) {
       resolve({
         success: false,
+        error: true,
         data: error,
-        message: `gitlabOAuth Error ${error?.message}`
+        message: `githubOAuth Error ${error?.message}`
       })
     }
   })
 }
 
 exports = module.exports = {
-  gitlabOAuth,
+  gitHubOAuth,
   queryClientTraffic,
   genQrcode,
   restartService,

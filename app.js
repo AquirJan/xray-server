@@ -2,7 +2,7 @@ const express = require('express')
 const app = express()
 const bodyParser = require('body-parser');
 const ENV = process.env.NODE_ENV;
-const setupLogger = require('./src/setupLogger.js')
+// const setupLogger = require('./src/setupLogger.js')
 
 Date.prototype.format = function (fmt) {
     var o = {
@@ -52,7 +52,7 @@ const {
     deleteUserCtl,
     genQrcodeCtl,
     queryClientTrafficCtl,
-    createUserCtl
+    OAuthLoginCtl
 } = require('./src/controller')
 const {
     initAction,
@@ -76,13 +76,13 @@ app.post(`${PROJECTNAME}/updateUser`, verifyTokenMiddle, putUserCtl)
 app.post(`${PROJECTNAME}/deleteUser`, verifyTokenMiddle, deleteUserCtl)
 app.post(`${PROJECTNAME}/genQrcode`, verifyTokenMiddle, genQrcodeCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
-app.get(`${PROJECTNAME}/create-user`, createUserCtl)
+app.post(`${PROJECTNAME}/OAuthLoginCtl`, OAuthLoginCtl)
 
 
 const _configs = getConfigs()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
 
-const logger = setupLogger()
+// const logger = setupLogger()
 initAction().then(res=>{
     const {success, message} = res;
     console.log(message)

@@ -21,7 +21,7 @@ const {
   deleteUser,
   dailySchedule,
   queryClientTraffic,
-  gitlabOAuth,
+  gitHubOAuth,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -263,14 +263,22 @@ async function queryClientTrafficCtl(req, res) {
   res.send(_res)
 }
 
-async function createUserCtl(req, res) {
-  console.log(req)
-  const _res = await gitlabOAuth({code:req?.code})
-  res.send(_res)
+async function OAuthLoginCtl(req, res) {
+  const {type, code} = req?.body || {}
+  if (!type) {
+    res.send({
+      success: false,
+      message: `请传入需要接入的OAuth类型`
+    })
+  }
+  if (type === 'github') {
+    const _res = await gitHubOAuth({code})
+    res.send(_res)
+  }
 }
 
 exports = module.exports = {
-  createUserCtl,
+  OAuthLoginCtl,
   queryClientTrafficCtl,
   loginCtl,
   restartServiceCtl,
