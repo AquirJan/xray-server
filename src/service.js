@@ -400,8 +400,8 @@ function setupClientSchedule({email, off_date, id}) {
     console.log(`${email} 账号剩余流量：${_remainTraffic}`)
     logger.info(`${email} 账号剩余流量：${_remainTraffic}`)
     restartService({email, id, remainTraffic: _remainTraffic})
-    console.log(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
-    logger.info(`今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
+    console.log(`${email} 今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
+    logger.info(`${email} 今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
     console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
     if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
       if (scheduleJobList[_scheduleName]) {
@@ -491,14 +491,17 @@ function findOutOverdueClient() {
           logger.info(`查询可用账号出错`)
           throw new Error(`查询可用账号出错`)
         }
-        let _current_emails = _current_clients.map(val => val.email).sort();
-        let _overdue_emails = data.map(val => val.email).sort()
+        let _current_emails = _current_clients.map(val => val.email).sort().join(',');
+        let _overdue_emails = data.map(val => val.email).sort().join(',')
         logger.info('比较账号是否一致')
+        logger.info(`_current_emails: ${_current_emails}`)
+        logger.info(`_overdue_emails: ${_overdue_emails}`)
+        let _isSame = _current_emails === _overdue_emails;
         resolve({
           success: true,
           data: _overdue_emails,
-          result: JSON.stringify(_current_emails) === JSON.stringify(_overdue_emails),
-          message: `账号比较完成`
+          message: _isSame ? '账号列表没有变动，前后一致': '账号列表存在变动，前后不一致',
+          result: _isSame
         })
       } else {
         logger.info('current-clients.json 文件不存在')
@@ -729,7 +732,7 @@ function setDailySchedule() {
       logger.info('统计流量计划任务')
       await statisticTraffic(true)
       const {success, result, message} = await findOutOverdueClient()
-      if (success && result) {
+      if (success) {
         if (!result) {
           logger.info('需要更新xray配置文件')
           restartService()
@@ -883,8 +886,8 @@ function recombineConfigFile() {
       })
       let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
       _configObj = JSON.parse(_configObj)
-      _configObj.inbounds[0].settings['clients'] = _clients
-      fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients), {encoding: 'utf-8'})
+      _configObj.inbounds?.[0].settings?.['clients'] = _clients
+      fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients.map(val=>val.email)), {encoding: 'utf-8'})
       fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
       _result.success = true;
       _result.message = '重组配置文件成功';
