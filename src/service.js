@@ -369,7 +369,7 @@ function setupClientSchedule({email, off_date, id}) {
   // console.log(_off_date)
   let _off_date_ms = new Date(off_date).getTime();
   let _now_ms = new Date(new Date().utcFormat('yyyy/MM/dd hh:mm:ss')).getTime()
-  console.log(`_off_date_ms: ${_off_date_ms}, _now_ms: ${_now_ms}`)
+  // console.log(`_off_date_ms: ${_off_date_ms}, _now_ms: ${_now_ms}`)
   if (_now_ms >= _off_date_ms) {
     console.log(`${email}, time less than now`)
     return;
@@ -478,28 +478,28 @@ async function deleteClient({id, email}) {
   })
 }
 
-function findOutOverdueClient() {
+function findOutValidClient() {
   return new Promise(async resolve => {
     try {
       const _current_file = path.resolve(`current-clients.json`);
       if (fs.existsSync(_current_file)) {
-        let _current_clients = fs.readFileSync(_current_file, {encoding:'utf-8'});
-        _current_clients = JSON.parse(_current_clients)
-        let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down;`
+        let _current_emails = fs.readFileSync(_current_file, {encoding:'utf-8'});
+        
+        let _sql = `SELECT * FROM clients where traffic*POW(1024,3) > up+down and DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
         const {success, data} = await queryPromise(_sql)
         if (!success) {
           logger.info(`查询可用账号出错`)
           throw new Error(`查询可用账号出错`)
         }
-        let _current_emails = _current_clients.map(val => val.email).sort().join(',');
-        let _overdue_emails = data.map(val => val.email).sort().join(',')
+        let _valid_emails = data.map(val => val.email).sort().join(',')
+        _valid_emails = `"${_valid_emails}"`
         logger.info('比较账号是否一致')
         logger.info(`_current_emails: ${_current_emails}`)
-        logger.info(`_overdue_emails: ${_overdue_emails}`)
-        let _isSame = _current_emails === _overdue_emails;
+        logger.info(`_valid_emails: ${_valid_emails}`)
+        let _isSame = _current_emails === _valid_emails;
         resolve({
           success: true,
-          data: _overdue_emails,
+          data: _valid_emails,
           message: _isSame ? '账号列表没有变动，前后一致': '账号列表存在变动，前后不一致',
           result: _isSame
         })
@@ -727,11 +727,11 @@ function setDailySchedule() {
       //删除日志文件
       autoDeleteLog();
     });
-    let _time = isDevEnv() ? '0 */10 * * * *' : '0 0 */1 * * *';
+    let _time = isDevEnv() ? '0 */1 * * * *' : '0 0 */1 * * *';
     schedule.scheduleJob(_time,  async ()=>{
       logger.info('统计流量计划任务')
       await statisticTraffic(true)
-      const {success, result, message} = await findOutOverdueClient()
+      const {success, result, message} = await findOutValidClient()
       if (success) {
         if (!result) {
           logger.info('需要更新xray配置文件')
@@ -866,6 +866,7 @@ function recombineConfigFile() {
       
       let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
       const {success, data} = await queryPromise(_sql)
+      
       if (!success) {
         logger.info(`查询可用账号出错`)
         throw new Error(`查询可用账号出错`)
@@ -886,8 +887,9 @@ function recombineConfigFile() {
       })
       let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
       _configObj = JSON.parse(_configObj)
-      _configObj.inbounds?.[0].settings?.['clients'] = _clients
-      fs.writeFileSync(path.resolve(`current-clients.json`), JSON.stringify(_clients.map(val=>val.email)), {encoding: 'utf-8'})
+      _configObj.inbounds[0].settings['clients'] = _clients
+      const _currentClientContent = JSON.stringify(_clients.map(val=>val.email).sort().join(','));
+      fs.writeFileSync(path.resolve(`current-clients.json`), _currentClientContent, {encoding: 'utf-8'})
       fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
       _result.success = true;
       _result.message = '重组配置文件成功';
