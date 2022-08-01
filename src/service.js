@@ -173,12 +173,14 @@ function autoDeleteLog() {
     const _files = fs.readdirSync(logFolder)
     if (_files.length) {
       // 5天前
-      const _spDateAgo = new Date().getTime() - 86400 * 1000 * 5
+      const _today = new Date()
+      const _spDateAgo = new Date(_today.setDate(_today.getDate()-5)).getTime()
       _files.forEach(val=>{
         const _filePath = path.resolve(logFolder+'/'+val)
         if (fs.existsSync(_filePath)) {
           const _fileStat = fs.statSync(_filePath)
-          if (_fileStat.isFile() && new Date(_fileStat.birthtime).getTime() < _spDateAgo) {
+          if (_fileStat.isFile() && new Date(_fileStat.birthtime).getTime() <= _spDateAgo) {
+            logger.info(`删除日志文件：${_filePath}`)
             fs.unlinkSync(_filePath)
           }
         }  
@@ -383,12 +385,14 @@ function setupClientSchedule({email, off_date, id}) {
   let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} ${_off_date.utcFormat('dd')} */1 *`
 
   console.log(`${email} setup off_date schedule action`)
+  logger.log(`${email} setup off_date schedule action, _scheduleName: ${_scheduleName}, _scheduleTime: ${_scheduleTime}`)
   const _scheduleName = email.replace(/\.|\@/gi, '_')
   console.log(_scheduleName)
   console.log(_scheduleTime)
   // const _scheduleNameDaily = `${_scheduleName}_daily`
   if (scheduleJobList[_scheduleName]){
     console.log(`cancel ${_scheduleName} schedule job`)
+    logger.log(`cancel ${_scheduleName} schedule job`)
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
   }
@@ -751,29 +755,37 @@ function setDailySchedule() {
 function dailySchedule() {
   return new Promise(async resolve => {
     try {
+      logger.info(`备份数据库`)
       const _res_backupDataBase = await backupDataBase()
       if (!_res_backupDataBase.success) {
         throw new Error(_res_backupDataBase.message)
       }
-      const _res_statisticTraffic = await statisticTraffic(true)
-      if (!_res_statisticTraffic.success) {
-        throw new Error(_res_statisticTraffic.message)
+      logger.info(`备份配置文件`)
+      const _res_backupConfigFile = await backupConfigFile()
+      if (!_res_backupConfigFile.success) {
+        throw new Error(`${_res_backupConfigFile.message}`)
       }
-      if (!isDevEnv()) {
-        const _res_restartService = await restartService()
-        _res_restartService.message =  '每日任务执行结果：'+(_res_restartService.success ? '成功' : '失败')+ ' '+_res_restartService.message
-        resolve(_res_restartService)
-      } else {
-        resolve({
-          success: true,
-          message: '每日任务执行成功'
-        })
-      }
+      // const _res_statisticTraffic = await statisticTraffic(true)
+      // if (!_res_statisticTraffic.success) {
+      //   throw new Error(_res_statisticTraffic.message)
+      // }
+      // if (!isDevEnv()) {
+      //   const _res_restartService = await restartService()
+      //   _res_restartService.message =  '每日任务执行结果：'+(_res_restartService.success ? '成功' : '失败')+ ' '+_res_restartService.message
+      //   logger.info(_res_restartService.message)
+      //   resolve(_res_restartService)
+      // } else {
+      resolve({
+        success: true,
+        message: '每日任务执行成功'
+      })
+      // }
     } catch(e) {
+      logger.info(`每日任务catch异常: ${e.message}`)
       resolve({
         success: false,
         data: e,
-        message: '每日任务catch异常'
+        message: `每日任务catch异常: ${e.message}`
       })
     }
   })
@@ -849,7 +861,7 @@ async function autoSetupSchedule() {
   }
 }
 
-function recombineConfigFile() {
+function recombineConfigFile(email) {
   return new Promise(async resolve => {
     let _result = {
       success: false,
@@ -865,6 +877,7 @@ function recombineConfigFile() {
       }
       
       let _sql = `SELECT * FROM clients where now() < off_date and traffic*POW(1024,3) > up+down;`
+
       const {success, data} = await queryPromise(_sql)
       
       if (!success) {
