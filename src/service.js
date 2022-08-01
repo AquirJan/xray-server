@@ -385,14 +385,14 @@ function setupClientSchedule({email, off_date, id}) {
   let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} ${_off_date.utcFormat('dd')} */1 *`
 
   console.log(`${email} setup off_date schedule action`)
-  logger.log(`${email} setup off_date schedule action, _scheduleName: ${_scheduleName}, _scheduleTime: ${_scheduleTime}`)
   const _scheduleName = email.replace(/\.|\@/gi, '_')
   console.log(_scheduleName)
   console.log(_scheduleTime)
+  logger.info(`${email} setup off_date schedule action, _scheduleName: ${_scheduleName}, _scheduleTime: ${_scheduleTime}`)
   // const _scheduleNameDaily = `${_scheduleName}_daily`
   if (scheduleJobList[_scheduleName]){
     console.log(`cancel ${_scheduleName} schedule job`)
-    logger.log(`cancel ${_scheduleName} schedule job`)
+    logger.info(`cancel ${_scheduleName} schedule job`)
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
   }
@@ -417,6 +417,8 @@ function setupClientSchedule({email, off_date, id}) {
     }
   })
   scheduleJobList[_scheduleName] = newScheduleJob
+  logger.info(`${email} setup off_date schedule success`)
+  console.log(`${email} setup off_date schedule success`)
 }
 
 async function addClient({email, uuid, port, off_date, price, traffic, remark}){
