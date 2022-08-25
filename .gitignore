@@ -3,3 +3,4 @@ logs
 .DS_Store
 current-clients.json
 xray-config.json
+configs.js
