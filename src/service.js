@@ -735,7 +735,7 @@ function setDailySchedule() {
     });
     let _time = isDevEnv() ? '0 */1 * * * *' : '0 0 */1 * * *';
     schedule.scheduleJob(_time,  async ()=>{
-      logger.info('统计流量计划任务')
+      logger.info('开始执行统计流量计划任务')
       await statisticTraffic(true)
       const {success, result, message} = await findOutValidClient()
       if (success) {
@@ -1162,6 +1162,7 @@ function gitHubOAuth({code}) {
 }
 
 exports = module.exports = {
+  logger,
   gitHubOAuth,
   queryClientTraffic,
   genQrcode,

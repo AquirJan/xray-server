@@ -1,10 +1,13 @@
 const mysql = require('mysql');
 const path = require('path');
+const {logger} = require('./service.js')
 const {
   prod,
   dev
 } = require(path.resolve('configs.js'))
 let CONNECTION=undefined;
+
+let reConnectTimes = 0;
 
 function connectDB(configs) {
   return new Promise(async (resolve, reject) => {
@@ -16,12 +19,27 @@ function connectDB(configs) {
       if (!dbSet) {
         throw new Error('请传入数据库配置')
       }
-      CONNECTION = await mysql.createConnection(dbSet);
+      CONNECTION = mysql.createConnection(dbSet);
+      CONNECTION.connect()
+      CONNECTION.on('error', function(err) {
+        logger.info(err.code); // 'ER_BAD_DB_ERROR'
+        if(err.code === 'PROTOCOL_CONNECTION_LOST') {
+          if (reConnectTimes < 3) {
+            reConnectTimes = reConnectTimes + 1;
+            connectDB(configs); 
+          } else {
+            throw new Error(`超出最大重连数据库次数`);
+          }
+        } else {                                      
+          throw err;
+        }
+      });
       resolve({
         success: true,
         message:  `连接数据库成功`
       })
     } catch(e) {
+      logger.info(e.message);
       resolve({
         success: false,
         data: e,
