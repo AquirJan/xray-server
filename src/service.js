@@ -24,16 +24,15 @@ const schedule = require('node-schedule');
 const QRCode = require('qrcode')
 const axios = require('axios')
 
+const logger = require('./logger.js');
 
 let Tokens = []
 const {
   dev,
   prod
 } = require('../configs.js')
-// const nodelogger = require('node-logger')
 let mailerTransporter = undefined;
 const LOGFOLDER = 'logs'
-let logger = undefined;
 let scheduleJobList = {}
 
 function getConfigs() {
@@ -52,17 +51,6 @@ function initAction() {
       message: ''
     }
     try {
-      if (!fs.existsSync(path.resolve(LOGFOLDER))) {
-        fs.mkdirSync(path.resolve(LOGFOLDER))
-      }
-      const opts = {
-        timestampFormat:'YYYY-MM-DD HH:mm:ss.SSS',
-        errorEventName:'error',
-        logDirectory: path.resolve(LOGFOLDER), // NOTE: folder must exist and be writable...
-        fileNamePattern:'<DATE>.log',
-        dateFormat:'YYYY-MM-DD'
-      };
-      logger = require('simple-node-logger').createRollingFileLogger( opts );
       // initMailer()
       // 每日任务
       // schedule.scheduleJob('0 0 9 * * *', ()=>{
@@ -168,18 +156,21 @@ function getRandomIntInclusive(min, max) {
 }
 
 function autoDeleteLog() {
+  logger.info(`执行删除日志文件任务`)
+  console.log(`执行删除日文件任务`)
   const logFolder = path.resolve(LOGFOLDER)
   if (fs.existsSync(logFolder) && fs.statSync(logFolder) && fs.statSync(logFolder).isDirectory()) {
     const _files = fs.readdirSync(logFolder)
     if (_files.length) {
       // 5天前
       const _today = new Date()
-      const _spDateAgo = new Date(_today.setDate(_today.getDate()-5)).getTime()
+      let _spDateAgo = new Date((new Date(_today.setDate(_today.getDate()-5))).utcFormat('yyyy/MM/dd 00:00:00'))
+      _spDateAgo = _spDateAgo.getTime()
       _files.forEach(val=>{
         const _filePath = path.resolve(logFolder+'/'+val)
         if (fs.existsSync(_filePath)) {
           const _fileStat = fs.statSync(_filePath)
-          if (_fileStat.isFile() && new Date(_fileStat.birthtime).getTime() <= _spDateAgo) {
+          if (_fileStat.isFile() && new Date(_fileStat.birthtime).getTime() < _spDateAgo) {
             logger.info(`删除日志文件：${_filePath}`)
             fs.unlinkSync(_filePath)
           }
@@ -368,7 +359,7 @@ function getRemainTraffic(id) {
 function setupClientSchedule({email, off_date, id}) {
   console.log(`setupClientSchedule: ${off_date}`)
   let _off_date = new Date(off_date+' UTC');
-  // console.log(_off_date)
+  console.log(_off_date)
   let _off_date_ms = new Date(off_date).getTime();
   let _now_ms = new Date(new Date().utcFormat('yyyy/MM/dd hh:mm:ss')).getTime()
   // console.log(`_off_date_ms: ${_off_date_ms}, _now_ms: ${_now_ms}`)
@@ -404,8 +395,11 @@ function setupClientSchedule({email, off_date, id}) {
     console.log(`${email} 账号剩余流量：${_remainTraffic}`)
     logger.info(`${email} 账号剩余流量：${_remainTraffic}`)
     restartService({email, id, remainTraffic: _remainTraffic})
-    console.log(`${email} 今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
-    logger.info(`${email} 今天月份 ${new Date().format('MM')}， 用户到期月份 ${new Date(off_date).format('MM')}`)
+    // scheduleJobList[_scheduleName].cancel()
+    // delete scheduleJobList[_scheduleName];
+    // setupClientSchedule({email, off_date, id})
+    console.log(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
+    logger.info(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
     console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
     if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
       if (scheduleJobList[_scheduleName]) {
@@ -733,7 +727,7 @@ function setDailySchedule() {
       //删除日志文件
       autoDeleteLog();
     });
-    let _time = isDevEnv() ? '0 */1 * * * *' : '0 0 */1 * * *';
+    let _time = isDevEnv() ? '0 */30 * * * *' : '0 0 */1 * * *';
     schedule.scheduleJob(_time,  async ()=>{
       logger.info('开始执行统计流量计划任务')
       await statisticTraffic(true)
@@ -767,21 +761,10 @@ function dailySchedule() {
       if (!_res_backupConfigFile.success) {
         throw new Error(`${_res_backupConfigFile.message}`)
       }
-      // const _res_statisticTraffic = await statisticTraffic(true)
-      // if (!_res_statisticTraffic.success) {
-      //   throw new Error(_res_statisticTraffic.message)
-      // }
-      // if (!isDevEnv()) {
-      //   const _res_restartService = await restartService()
-      //   _res_restartService.message =  '每日任务执行结果：'+(_res_restartService.success ? '成功' : '失败')+ ' '+_res_restartService.message
-      //   logger.info(_res_restartService.message)
-      //   resolve(_res_restartService)
-      // } else {
       resolve({
         success: true,
         message: '每日任务执行成功'
       })
-      // }
     } catch(e) {
       logger.info(`每日任务catch异常: ${e.message}`)
       resolve({
@@ -872,7 +855,7 @@ function recombineConfigFile(email) {
     }
     try {
       const _tplConfig = path.resolve('xray-config-template.json');
-      console.log('重组配置文件')
+      console.log(`${new Date().format('yyyy/MM/dd hh:mm:ss')}重组配置文件`)
       if (!fs.existsSync(_tplConfig)) {
         logger.info(`配置模板文件丢失`)
         throw new Error(`配置模板文件丢失`)
@@ -1162,7 +1145,6 @@ function gitHubOAuth({code}) {
 }
 
 exports = module.exports = {
-  logger,
   gitHubOAuth,
   queryClientTraffic,
   genQrcode,
