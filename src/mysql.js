@@ -93,6 +93,9 @@ function queryPromise(_sql) {
         })
       });
     } catch(e) {
+      console.dir(e)
+      console.log(e.message)
+      logger.info(e.message);
       return resolve({
         success: false,
         data: e,

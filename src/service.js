@@ -68,6 +68,7 @@ function initAction() {
           port: _dbset.port
       };
       await connectDB(_fdbset)
+      console.log('开始自动创建表')
       const _cdbres = await queryPromise(CREATEDBSQL)
       console.log(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
       logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
@@ -357,13 +358,11 @@ function getRemainTraffic(id) {
 }
 
 function setupClientSchedule({email, off_date, id}) {
-  console.log(`setupClientSchedule: ${off_date}`)
+  console.log(`${email} 创建计划任务: ${off_date}`)
   let _off_date = new Date(off_date+' UTC');
   console.log(_off_date)
-  let _off_date_ms = new Date(off_date).getTime();
-  let _now_ms = new Date(new Date().utcFormat('yyyy/MM/dd hh:mm:ss')).getTime()
-  // console.log(`_off_date_ms: ${_off_date_ms}, _now_ms: ${_now_ms}`)
-  if (_now_ms >= _off_date_ms) {
+  let _now_ms = new Date().utcFormat('yyyy/MM/dd hh:mm:ss')
+  if (_now_ms >= _off_date) {
     console.log(`${email}, time less than now`)
     return;
   }
@@ -395,20 +394,22 @@ function setupClientSchedule({email, off_date, id}) {
     console.log(`${email} 账号剩余流量：${_remainTraffic}`)
     logger.info(`${email} 账号剩余流量：${_remainTraffic}`)
     restartService({email, id, remainTraffic: _remainTraffic})
-    // scheduleJobList[_scheduleName].cancel()
-    // delete scheduleJobList[_scheduleName];
-    // setupClientSchedule({email, off_date, id})
-    console.log(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
-    logger.info(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
-    console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
-    if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
-      if (scheduleJobList[_scheduleName]) {
-        console.log(`注销 ${_scheduleName} 计划任务`)
-        logger.info(`注销 ${_scheduleName} 计划任务`)
-        scheduleJobList[_scheduleName].cancel()
-        delete scheduleJobList[_scheduleName];
-      }
-    }
+    console.log(`删除原有计划任务--${_scheduleName}`)
+    scheduleJobList[_scheduleName].cancel()
+    delete scheduleJobList[_scheduleName];
+    setupClientSchedule({email, off_date, id})
+
+    // console.log(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
+    // logger.info(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
+    // console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
+    // if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
+    //   if (scheduleJobList[_scheduleName]) {
+    //     console.log(`注销 ${_scheduleName} 计划任务`)
+    //     logger.info(`注销 ${_scheduleName} 计划任务`)
+    //     scheduleJobList[_scheduleName].cancel()
+    //     delete scheduleJobList[_scheduleName];
+    //   }
+    // }
   })
   scheduleJobList[_scheduleName] = newScheduleJob
   logger.info(`${email} setup off_date schedule success`)
