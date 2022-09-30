@@ -1,6 +1,6 @@
 const mysql = require('mysql');
 const path = require('path');
-const logger = require('../src/logger.js');
+const logger = require('./logger.js');
 const {
   prod,
   dev
