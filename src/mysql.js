@@ -1,10 +1,10 @@
 const mysql = require('mysql');
 const path = require('path');
-const logger = require('./logger.js');
 const {
   prod,
   dev
 } = require(path.resolve('configs.js'))
+const logger = require('./logger');
 let CONNECTION=undefined;
 
 let reConnectTimes = 0;
