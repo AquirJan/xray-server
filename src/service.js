@@ -1007,6 +1007,7 @@ function deleteUser({id}) {
 function genQrcode({email}) {
   return new Promise(async resolve => {
     let _sql = `select * from clients where email = '${email}'`;
+    let _port = 3888
     const {success, data} = await queryPromise(_sql)
     if (!success || !data || (success && data && !data.length)) {
       resolve({
@@ -1016,7 +1017,7 @@ function genQrcode({email}) {
       })
     }
     const _client = data[0]
-    let _config = `vless://${_client.uuid}@www.samojum.ml:443?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=%2fwsxray#${_client.email}`
+    let _config = `vless://${_client.uuid}@www.samojum.ml:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=%2fwsxray#${_client.email}`
     QRCode.toDataURL(_config)
     .then(url => {
       resolve({
