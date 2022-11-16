@@ -3,7 +3,7 @@ const app = express()
 const bodyParser = require('body-parser');
 const ENV = process.env.NODE_ENV;
 // const setupLogger = require('./src/setupLogger.js')
-
+global.LOGFOLDER = 'logs'
 Date.prototype.format = function (fmt) {
     var o = {
       'M+': this.getMonth() + 1, //月份
@@ -52,14 +52,15 @@ const {
     deleteUserCtl,
     genQrcodeCtl,
     queryClientTrafficCtl,
-    OAuthLoginCtl
+    OAuthLoginCtl,
+    dailyScheduleCtl
 } = require('./src/controller')
 const {
     initAction,
-    getConfigs,
     autoSetupSchedule,
     setDailySchedule
-} = require('./src/service')
+} = require('./src/service');
+const { getCnf } = require('./src/util');
 const PROJECTNAME = '/xray'
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
@@ -75,11 +76,11 @@ app.post(`${PROJECTNAME}/addUser`, verifyTokenMiddle, putUserCtl)
 app.post(`${PROJECTNAME}/updateUser`, verifyTokenMiddle, putUserCtl)
 app.post(`${PROJECTNAME}/deleteUser`, verifyTokenMiddle, deleteUserCtl)
 app.post(`${PROJECTNAME}/genQrcode`, verifyTokenMiddle, genQrcodeCtl)
+app.post(`${PROJECTNAME}/dailySchedule`, dailyScheduleCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
 app.post(`${PROJECTNAME}/OAuthLoginCtl`, OAuthLoginCtl)
 
-
-const _configs = getConfigs()
+const _configs = getCnf()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
 
 // const logger = setupLogger()

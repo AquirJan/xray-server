@@ -1,0 +1,24 @@
+{
+  "development": {
+    "godAcount": "aquirjan",
+    "database": {
+      "host": "localhost",
+      "user": "aquirjan",
+      "password": "Samojum.123456",
+      "database": "vpndb",
+      "port": 3306
+    },
+    "port": 8686
+  },
+  "production": {
+    "godAcount": "aquirjan",
+    "database": {
+      "host": "localhost",
+      "user": "aquirjan",
+      "password": "#kiWYn.36@kK",
+      "database": "vpndb",
+      "port": 3306
+    },
+    "port": 8686
+  }
+}

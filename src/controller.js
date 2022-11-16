@@ -43,9 +43,9 @@ async function loginCtl(req, res) {
 }
 
 async function verifyTokenMiddle(req, res, next) {
-  if (isDevEnv()){
-    next()
-  } else {
+  // if (isDevEnv()){
+  //   next()
+  // } else {
     const token = req.headers.token;
     const _res = await verifyToken(token)
     if (_res.success) {
@@ -53,7 +53,7 @@ async function verifyTokenMiddle(req, res, next) {
     } else {
       res.send(_res)
     }
-  }
+  // }
 }
 
 async function listClientsCtl(req, res) {
@@ -69,7 +69,7 @@ async function listClientsCtl(req, res) {
 }
 
 async function putClientCtl(req, res) {
-  const {id, email, uuid, price, off_date, port, remark, traffic, timezone} = req.body
+  const {id, email, uuid, price, off_date, port, remark, traffic, timezone, api} = req.body
   // const _now = new Date()
   const _port = port ? port : 443;
   const _price = price ? price : 20;
@@ -86,7 +86,7 @@ async function putClientCtl(req, res) {
       message: '请传入off_date'
     })
   }
-  console.log(`controler _off_date: ${_off_date}`)
+  
   if (!email) {
     res.send({
       success: false,
@@ -109,24 +109,23 @@ async function putClientCtl(req, res) {
     success: false,
     message: 'default response'
   }
-  const _obj = {email, uuid, remark, price: _price, off_date: _off_date, port: _port,  traffic: _traffic}
+  const _obj = {email, uuid, remark, price: _price, off_date: _off_date, port: _port,  traffic: _traffic, api}
+  let _ddaRes = await detectDuplicateAccount({id, email, uuid, port})
+  // console.log(_ddaRes)
+  if (_ddaRes.data && _ddaRes.data.length) {
+    res.send({
+      success: false,
+      message: '该email账号或uuid或port已存在'
+    })
+    return;
+  }
   if (id) {
     _obj['id'] = id;
-    _res = await updateClient(_obj);
-    _res['message'] = _res.success ? '更新成功' : `更新失败: ${_res.message}`
+    let _updateRes = await updateClient(_obj);
+    _res['message'] = _updateRes.success ? '更新成功' : `更新失败: ${_updateRes.message}`
   } else {
-    _res = await detectDuplicateAccount({email, uuid})
-    if (_res.success) {
-      if (_res.data && _res.data.length) {
-        _res = {
-          success: false,
-          message: '该email账号或uuid已存在'
-        }
-      } else {
-        _res = await addClient(_obj);
-        _res['message'] = _res.success ? '添加成功' : '添加失败'
-      }
-    }
+    let _addRes = await addClient(_obj);
+    _res['message'] = _addRes.success ? '添加成功' : `添加失败: ${_addRes.message}`
   }
   res.send(_res)
 }
@@ -181,6 +180,15 @@ async function restartServiceCtl(req, res) {
 }
 
 async function testActionCtl(req, res) {
+  // const _res = await backupConfigFile()
+  // const _res = await backupDataBase()
+  // const _res = await recombineConfigFile()
+  const _res = await dailySchedule()
+  // const {success, data, message} = await execCommand(`systemctl restart xray`)
+  // console.log('controllers log')
+  res.send(_res)
+}
+async function dailyScheduleCtl(req, res) {
   // const _res = await backupConfigFile()
   // const _res = await backupDataBase()
   // const _res = await recombineConfigFile()
@@ -278,6 +286,7 @@ async function OAuthLoginCtl(req, res) {
 }
 
 exports = module.exports = {
+  dailyScheduleCtl,
   OAuthLoginCtl,
   queryClientTrafficCtl,
   loginCtl,

@@ -1,7 +1,32 @@
 const ENV = process.env.NODE_ENV;
 const INITSQLS = [
-    "CREATE TABLE IF NOT EXISTS `users` ( `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `name` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `passwd` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '密码', `last_time` datetime DEFAULT NULL COMMENT '上次登录时间', `off_time` datetime DEFAULT NULL COMMENT '截止时间', `remark` varchar(255) COLLATE utf8_unicode_ci DEFAULT NULL, PRIMARY KEY (`id`)) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci",
-    "CREATE TABLE IF NOT EXISTS `clients` (`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键', `email` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户名', `uuid` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '用户id', `port` int DEFAULT NULL COMMENT '端口', `off_date` datetime DEFAULT NULL COMMENT '结束时间', `remark` varchar(255) CHARACTER SET utf8 COLLATE utf8_unicode_ci DEFAULT NULL COMMENT '备注', `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间', `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间', `up` bigint DEFAULT '0' COMMENT '上行数据量', `down` bigint DEFAULT '0' COMMENT '下行数据量', `traffic` int DEFAULT '0' COMMENT '可用流量', `price` float DEFAULT '0' COMMENT '每月费用', PRIMARY KEY (`id`), UNIQUE KEY `email_UNIQUE` (`email`) ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci"
+  "CREATE TABLE IF NOT EXISTS `users` ("
+    +"`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',"
+    +"`name` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT '用户名',"
+    +"`create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',"
+    +"`passwd` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT '密码',"
+    +"`last_time` datetime DEFAULT NULL COMMENT '上次登录时间',"
+    +"`off_time` datetime DEFAULT NULL COMMENT '截止时间',"
+    +"`remark` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL,"
+    +"PRIMARY KEY (`id`)"
+  +") ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci",
+  "CREATE TABLE IF NOT EXISTS `clients` ("
+    +"`id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',"
+    +"`email` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT '用户名',"
+    +"`uuid` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT '用户id',"
+    +"`port` int DEFAULT NULL COMMENT '端口',"
+    +"`off_date` datetime DEFAULT NULL COMMENT '结束时间',"
+    +"`remark` varchar(255) CHARACTER SET utf8mb3 COLLATE utf8mb3_unicode_ci DEFAULT NULL COMMENT '备注',"
+    +"`create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',"
+    +"`update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',"
+    +"`up` bigint DEFAULT '0' COMMENT '上行数据量',"
+    +"`down` bigint DEFAULT '0' COMMENT '下行数据量',"
+    +"`traffic` int DEFAULT '0' COMMENT '可用流量',"
+    +"`price` float DEFAULT '0' COMMENT '每月费用',"
+    +"`api` varchar(255) DEFAULT '/web3' COMMENT '配置文件内的api地址',"
+    +"PRIMARY KEY (`id`),"
+    +"UNIQUE KEY `email_UNIQUE` (`email`)"
+  +") ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_unicode_ci"
 ]
 const CREATEDBSQL = "create database if not exists `vpndb`;"
 
@@ -26,18 +51,14 @@ const axios = require('axios')
 
 const logger = require('./logger.js');
 
-let Tokens = []
 const {
   dev,
   prod
-} = require('../configs.js')
+} = require('../configs.js');
+const { getCnf } = require('./util');
 let mailerTransporter = undefined;
 const LOGFOLDER = 'logs'
 let scheduleJobList = {}
-
-function getConfigs() {
-  return ENV === 'production' ? prod : dev;
-}
 
 function isDevEnv() {
   return ENV !== 'production';
@@ -59,25 +80,24 @@ function initAction() {
       // });
       autoDeleteLog()
       // console.log('连接数据库')
-      const _configs = getConfigs();
+      const _configs = getCnf();
       const _dbset = _configs.database
+      // console.log(_dbset)
       const _fdbset = {
-          host: _dbset.host,
-          user: _dbset.user,
-          password: _dbset.password,
-          port: _dbset.port
+        host: _dbset.host,
+        user: _dbset.user,
+        password: _dbset.password,
+        port: _dbset.port
       };
       await connectDB(_fdbset)
-      console.log('开始自动创建表')
       const _cdbres = await queryPromise(CREATEDBSQL)
-      console.log(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
-      logger.info(`执行自动创建数据库${_cdbres.success?'成功':'失败:'+JSON.stringify(_cdbres.data)}`)
+      logger.info(`执行自动创建数据库${_cdbres.success?'成功':"失败:"+_cdbres.message}`)
       await closeDB()
-      const _resSheet = await connectDB()
+      const _resSheet = await connectDB(_dbset)
       if (_resSheet.success) {
         for await (const [index, item] of INITSQLS.entries()) {
           const _res = await queryPromise(item)
-          logger.info(`执行自动创建${index}表${_res.success?'成功':'失败:'+JSON.stringify(_res.data)}`)
+          logger.info(`执行自动创建${index}表${_res.success?'成功':"失败:"+_res.message}`)
           if (!_res.success) {
             break;
           }
@@ -96,41 +116,19 @@ function initAction() {
   })
 }
 
-const initMailer = async function() {
-  mailerTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'wing.free0@gmail.com',
-      pass: 'Aquir239'
-    }
-  });
-  // mailerTransporter.verify().then((e)=>{
-  //   console.log('nodemailer verify')
-  //   console.log(e)
-  // }).catch((err) => {
-  //   console.error(err)
-  // });
-  mailerTransporter.sendMail({
-    from: 'wing.free0@gmail.com', // sender address
-    to: "aquirjan@icloud.com", // list of receivers
-    subject: "Medium @edigleyssonsilva ✔", // Subject line
-    text: "There is a new article. It's about sending emails, check it out!", // plain text body
-    html: "<b>There is a new article. It's about sending emails, check it out!</b>", // html body
-  }).then(info => {
-    console.log({info});
-  }).catch(console.error);
-  
-}
-
 function execCommand(command) {
   return new Promise(resolve=>{
     try {
       exec(command, (error, stdout, stderr) => {
         if (error) {
           // console.error(`exec error: ${error}`);
-          throw new Error(`exec command failure`)
+          return resolve({
+            success: false,
+            error: true,
+            message: `exec command failure: ${error.message}`
+          })
         }
-        resolve({
+        return resolve({
           success: true,
           data: {
             stdout,
@@ -158,7 +156,6 @@ function getRandomIntInclusive(min, max) {
 
 function autoDeleteLog() {
   logger.info(`执行删除日志文件任务`)
-  console.log(`执行删除日文件任务`)
   const logFolder = path.resolve(LOGFOLDER)
   if (fs.existsSync(logFolder) && fs.statSync(logFolder) && fs.statSync(logFolder).isDirectory()) {
     const _files = fs.readdirSync(logFolder)
@@ -191,17 +188,10 @@ function sleep(_start=9000, _end=12000) {
 }
 
 function findOutToken(name) {
-  if (!name || !Tokens || !Tokens.length) {
-    return undefined;
+  if (!name || !global.Tokens ) {
+    return false;
   }
-  let _matchUserIndex = undefined;
-  for(let i=0;i<Tokens.length;i++) {
-    if (Tokens[i].name === name) {
-      _matchUserIndex = i;
-      break;
-    }
-  }
-  return _matchUserIndex
+  return global.Tokens[name]
 }
 
 function listClients({page, size, conditions}) {
@@ -239,6 +229,25 @@ function listClients({page, size, conditions}) {
 function login({name, password}) {
   return new Promise(async resolve => {
     try {
+      const _cnfRes = getCnf()
+      if (_cnfRes.godAcount && _cnfRes.godAcount === name){
+        const _tempDate = new Date()
+        const _offtime = new Date(_tempDate.setDate(_tempDate.getDate()+2)) // token有效期2天
+        const _token = (Buffer.from(JSON.stringify({ "name": name, "off_time": _offtime.getTime() }))).toString('base64')
+        if (!global.Tokens){
+          global.Tokens = {}
+        }
+        global.Tokens[name] = {
+          token: _token,
+          name: name,
+          offTime: _offtime
+        }
+        return resolve({
+          token: _token,
+          success: true,
+          message: '登录成功'
+        })
+      }
       const { data, message, success} = await queryPromise(`select * from users where name = '${name}'`)
       if (!success) {
         throw new Error(`login failure : ${message}`)
@@ -254,19 +263,20 @@ function login({name, password}) {
         throw new Error('login failure: password error')
       }
       const _matchUserIndex = findOutToken(name)
-      if (_matchUserIndex !== undefined) {
+      if (_matchUserIndex) {
         // 触发单点登陆/另一台机器登陆/删除匹配信息
         logger.info('触发单点登陆/另一台机器登陆/删除匹配信息')
-        Tokens.splice(_matchUserIndex, 1)
+        delete global.Tokens[name]
       } 
-      const _offtime = (new Date()).getTime() + 86400 * 1000 * 2 // token有效期2天
-      await queryPromise(`update users set last_time='${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', off_time='${(new Date(_offtime)).format('yyyy-MM-dd hh:mm:ss')}' where id=${_user.id}`)
-      const _token = (Buffer.from(JSON.stringify({"name":name, "off_time": _offtime}))).toString('base64')
-      Tokens.push({
+      const _tempDate = new Date()
+      const _offtime = new Date(_tempDate.setDate(_tempDate.getDate()+2)) // token有效期2天
+      await queryPromise(`update users set last_time='${(new Date()).format('yyyy-MM-dd hh:mm:ss')}', off_time='${_offtime.format('yyyy-MM-dd hh:mm:ss')}' where id=${_user.id}`)
+      const _token = (Buffer.from(JSON.stringify({"name":name, "off_time": _offtime.getTime()}))).toString('base64')
+      global.Tokens[name] = {
         token: _token,
         name: name,
         offTime: _offtime
-      })
+      }
       resolve({
         token: _token,
         success: true,
@@ -285,21 +295,11 @@ function login({name, password}) {
 
 function verifyToken(_realToken) {
   return new Promise(resolve => {
-    let matchIndex = undefined;
-    for (let i = 0; i<Tokens.length;i++) {
-      const _item = Tokens[i]
-      if (_item.token === _realToken) {
-        matchIndex = i;
-        break;
-      }
-    }
-    if (matchIndex !== undefined) {
-      const _realTokenObj = JSON.parse((Buffer.from(_realToken, 'base64')).toString())
-      const _userOfftime = (new Date(_realTokenObj.off_time)).getTime()
-      const _now = (new Date()).getTime()
-      if (_now > _userOfftime) {
-        Tokens.splice(matchIndex, 1);
-        matchIndex = undefined;
+    const _res = Object.values(global?.Tokens ?? {}).filter(val => val.token === _realToken)?.[0]
+    if (_res) {
+      const _now = Date.now()
+      if (_now > _res.off_time) {
+        delete global.Tokens[_res.name]
         resolve({
           success: false,
           code: 401,
@@ -358,12 +358,11 @@ function getRemainTraffic(id) {
 }
 
 function setupClientSchedule({email, off_date, id}) {
-  console.log(`${email} 创建计划任务: ${off_date}`)
+  logger.info(`${email} 创建计划任务: ${off_date}`)
   let _off_date = new Date(off_date+' UTC');
-  console.log(_off_date)
   let _now_ms = new Date().utcFormat('yyyy/MM/dd hh:mm:ss')
   if (_now_ms >= _off_date) {
-    console.log(`${email}, time less than now`)
+    logger.info(`${email}, time less than now`)
     return;
   }
   if (!scheduleJobList) {
@@ -374,14 +373,10 @@ function setupClientSchedule({email, off_date, id}) {
   // let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} */1 * *`
   let _scheduleTime = `${_off_date.utcFormat('ss')} ${_off_date.utcFormat('mm')} ${_off_date.utcFormat('hh')} ${_off_date.utcFormat('dd')} */1 *`
 
-  console.log(`${email} setup off_date schedule action`)
   const _scheduleName = email.replace(/\.|\@/gi, '_')
-  console.log(_scheduleName)
-  console.log(_scheduleTime)
   logger.info(`${email} setup off_date schedule action, _scheduleName: ${_scheduleName}, _scheduleTime: ${_scheduleTime}`)
   // const _scheduleNameDaily = `${_scheduleName}_daily`
   if (scheduleJobList[_scheduleName]){
-    console.log(`cancel ${_scheduleName} schedule job`)
     logger.info(`cancel ${_scheduleName} schedule job`)
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
@@ -389,37 +384,22 @@ function setupClientSchedule({email, off_date, id}) {
   const newScheduleJob = schedule.scheduleJob(_scheduleTime, async ()=>{
     // console.log(`${email} excute off_date schedule action`)
     const _remainTrafficRes = await getRemainTraffic(id)
-    console.log(`\n${email} ${JSON.stringify(_remainTrafficRes)}`)
     _remainTraffic = _remainTrafficRes?.data || 0
-    console.log(`${email} 账号剩余流量：${_remainTraffic}`)
     logger.info(`${email} 账号剩余流量：${_remainTraffic}`)
     restartService({email, id, remainTraffic: _remainTraffic})
-    console.log(`删除原有计划任务--${_scheduleName}`)
+    logger.info(`删除原有计划任务--${_scheduleName}`)
     scheduleJobList[_scheduleName].cancel()
     delete scheduleJobList[_scheduleName];
     setupClientSchedule({email, off_date, id})
-
-    // console.log(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
-    // logger.info(`${email} 今天年月 ${new Date().format('yyyy/MM')}， 用户到期年月 ${new Date(off_date).format('yyyy/MM')}`)
-    // console.log((new Date().utcFormat('yyyy/MM')), (new Date(off_date).utcFormat('yyyy/MM')))
-    // if ((new Date().utcFormat('yyyy/MM')) >= (new Date(off_date).utcFormat('yyyy/MM'))) {
-    //   if (scheduleJobList[_scheduleName]) {
-    //     console.log(`注销 ${_scheduleName} 计划任务`)
-    //     logger.info(`注销 ${_scheduleName} 计划任务`)
-    //     scheduleJobList[_scheduleName].cancel()
-    //     delete scheduleJobList[_scheduleName];
-    //   }
-    // }
   })
   scheduleJobList[_scheduleName] = newScheduleJob
   logger.info(`${email} setup off_date schedule success`)
-  console.log(`${email} setup off_date schedule success`)
 }
 
-async function addClient({email, uuid, port, off_date, price, traffic, remark}){
+async function addClient({email, uuid, port, off_date, price, traffic, remark, api}){
   return new Promise(async resolve=> {
     try {
-      let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}' );`
+      let _sql = `INSERT INTO clients ( email, uuid, port, off_date, price, traffic, remark, api ) VALUES ( '${email}', '${uuid}', '${port}', '${off_date}', '${price}', '${traffic}', '${remark}', '${api}' );`
       const _res = await queryPromise(_sql)
       if (_res.success) {
         setupClientSchedule({email, off_date, id:_res?.data?.insertId})
@@ -434,19 +414,19 @@ async function addClient({email, uuid, port, off_date, price, traffic, remark}){
   })
 }
 
-async function updateClient({id, email, uuid, port, off_date, price, traffic, remark}){
+async function updateClient({id, email, uuid, port, off_date, price, traffic, remark, api}){
   return new Promise(async resolve=> {
     try {
-      let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}' where id=${id};`
+      let _sql = `update clients set email='${email}', uuid='${uuid}', port='${port}', off_date='${off_date}', price='${price}', traffic='${traffic}', remark='${remark}', api='${api}' where id=${id};`
       const _res = await queryPromise(_sql)
       if (_res.success) {
         setupClientSchedule({email, off_date, id})
       }
-      resolve(_res)
-      console.log(`update client message: ${_res.message}`)
+      logger.info(`update client message: ${_res.message}`)
+      return resolve(_res)
     } catch(error) {
-      console.log(`update client Error: ${error.message}`)
-      resolve({
+      logger.info(`update client Error: ${error.message}`)
+      return resolve({
         success: false,
         message: `update client Error: ${error.message}`
       })
@@ -454,9 +434,12 @@ async function updateClient({id, email, uuid, port, off_date, price, traffic, re
   })
 }
 
-async function detectDuplicateAccount({email, uuid}){
+async function detectDuplicateAccount({id, email, uuid, port}){
   return new Promise(async resolve=> {
-    let _sql = `select * from clients where email='${email}' or uuid='${uuid}';`
+    let _sql = `select * from clients where email='${email}' or uuid='${uuid}' or port='${port}';`
+    if (id) {
+      _sql = `select * from clients where (email='${email}' or uuid='${uuid}' or port='${port}') and id!=${id};`
+    }
     const _res = await queryPromise(_sql)
     resolve(_res)
   })
@@ -469,7 +452,6 @@ async function deleteClient({id, email}) {
     if (_res.success) {
       let _scheduleName = email.replace(/\.|\@/gi, '_')
       if (scheduleJobList[_scheduleName]){
-        console.log(`撤销 ${_scheduleName} 计划任务`)
         logger.info(`撤销 ${_scheduleName} 计划任务`)
         scheduleJobList[_scheduleName].cancel()
         delete scheduleJobList[_scheduleName];
@@ -653,11 +635,9 @@ function resetTraffic({email, id, remainTraffic=0}) {
           throw new Error(`重置流量命令执行出错: ${message}`)
         }
       }
-      console.log(`重置流量命令成功`)
       logger.info(`重置流量命令成功`)
       let _sql = `update clients set up=0, down=${remainTraffic} where email='${email}' and id=${id};`
       const _res = await queryPromise(_sql)
-      console.log(`重置流量${_res.success?'成功': '失败'}`)
       logger.info(`重置流量${_res.success?'成功': '失败'}`)
       resolve(_res)
     } catch(err) {
@@ -752,25 +732,33 @@ function setDailySchedule() {
 function dailySchedule() {
   return new Promise(async resolve => {
     try {
-      logger.info(`备份数据库`)
-      const _res_backupDataBase = await backupDataBase()
-      if (!_res_backupDataBase.success) {
-        throw new Error(_res_backupDataBase.message)
+      if (!isDevEnv()){
+        logger.info(`备份数据库`)
+        const _res_backupDataBase = await backupDataBase()
+        if (!_res_backupDataBase.success) {
+          throw new Error(_res_backupDataBase.message)
+        }
       }
       logger.info(`备份配置文件`)
       const _res_backupConfigFile = await backupConfigFile()
       if (!_res_backupConfigFile.success) {
         throw new Error(`${_res_backupConfigFile.message}`)
       }
-      resolve({
+      logger.info(`dailySchedule 邮件发送备份数据`)
+      const _res_mailbackups = await mailBackups()
+      if (!_res_mailbackups.success) {
+        throw new Error(`${_res_mailbackups.message}`)
+      }
+      return resolve({
         success: true,
         message: '每日任务执行成功'
       })
     } catch(e) {
       logger.info(`每日任务catch异常: ${e.message}`)
-      resolve({
+      return resolve({
         success: false,
         data: e,
+        error: true,
         message: `每日任务catch异常: ${e.message}`
       })
     }
@@ -780,7 +768,7 @@ function dailySchedule() {
 function backupDataBase(){
   return new Promise(async resolve => {
     try {
-      const {database} = getConfigs()
+      const {database} = getCnf()
       const {success, data, message} = await execCommand(`mysqldump -u${database.user} -p${database.password} ${database.database} > ${database.database}_backup.sql`)
       resolve({
         success,
@@ -830,11 +818,9 @@ function backupConfigFile(){
 
 async function autoSetupSchedule() {
   try {
-    console.log(`run autoSetupSchedule`)
     let _sql = `SELECT *, DATE_FORMAT(off_date, '%Y/%m/%d %H:%i:%S') as off_date_utc FROM clients where DATE_FORMAT(off_date, '%Y-%m-%d %H:%i:%S') > UTC_TIMESTAMP;`
     const {success, data} = await queryPromise(_sql)
     if (!success || !data || !data.length) {
-      console.log(`没有需要设定定时任务的client`)
       logger.info(`没有需要设定定时任务的client`)
       return;
     }
@@ -842,7 +828,6 @@ async function autoSetupSchedule() {
       setupClientSchedule({off_date: item.off_date_utc, email:item.email, id: item.id})
     }
   } catch(err) {
-    console.log('autoSetupSchedule Error: '+err.message)
     logger.info('autoSetupSchedule Error: '+err.message)
   }
 }
@@ -856,7 +841,6 @@ function recombineConfigFile(email) {
     }
     try {
       const _tplConfig = path.resolve('xray-config-template.json');
-      console.log(`${new Date().format('yyyy/MM/dd hh:mm:ss')}重组配置文件`)
       if (!fs.existsSync(_tplConfig)) {
         logger.info(`配置模板文件丢失`)
         throw new Error(`配置模板文件丢失`)
@@ -878,15 +862,32 @@ function recombineConfigFile(email) {
       }
       let _clients = data.map(val => {
         return {
-          "id": val.uuid,
-          "level": 0,
-          "flow": "xtls-rprx-direct",
-          "email": val.email
+          "port": 3300,
+          "listen": "127.0.0.1",
+          "protocol": "vless",
+          "settings": {
+              "clients": [
+                {
+                  "id": val.uuid,
+                  "level": 0,
+                  "flow": "xtls-rprx-direct",
+                  "email": val.email
+                }
+              ],
+              "decryption": "none"
+          },
+          "streamSettings": {
+              "network": "ws",
+              "security": "none",
+              "wsSettings": {
+                "path": val.api
+              }
+          }
         }
       })
       let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
       _configObj = JSON.parse(_configObj)
-      _configObj.inbounds[0].settings['clients'] = _clients
+      _configObj.inbounds = [..._clients, ..._configObj.inbounds]
       const _currentClientContent = JSON.stringify(_clients.map(val=>val.email).sort().join(','));
       fs.writeFileSync(path.resolve(`current-clients.json`), _currentClientContent, {encoding: 'utf-8'})
       fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
@@ -1146,6 +1147,61 @@ function gitHubOAuth({code}) {
   })
 }
 
+function mailBackups(){
+  return new Promise(resolve=>{
+    try {
+      const transporter = nodemailer.createTransport({
+        service : 'hotmail',
+        auth : {
+          user : 'samojum@outlook.com',
+          pass : 'Aquir.239'
+        }
+      });
+      const mailOptions = {
+        from: 'samojum@outlook.com',
+        to: 'aquirjan@icloud.com',
+        subject: 'Sending Email using Node.js by xray-server',
+        text: 'Backup files',
+        attachments: [
+          {   // file on disk as an attachment
+            filename: 'vpndb_backup.sql',
+            path: path.resolve('vpndb_backup.sql') // stream this file
+          },
+          {   // file on disk as an attachment
+            filename: 'xray-config_backup.json',
+            path: path.resolve('xray-config_backup.json') // stream this file
+          }
+        ]
+      };
+      
+      transporter.sendMail(mailOptions, function(error, info){
+        if (error) {
+          return resolve({
+            success: false,
+            error: true,
+            data: error,
+            message: `mailBackups Failure: ${error.message}`
+          })
+        } else {
+          return resolve({
+            success: true,
+            message: `mailBackups Success: ${info.response}`
+          })
+        }
+      });
+    } catch(error){
+      logger.info(`mailBackups Error: ${error.message}`)
+      return resolve({
+        success: false,
+        error: true,
+        data: error,
+        message: `mailBackups Error: ${error.message}`
+      })
+    }
+  })
+  
+}
+
 exports = module.exports = {
   gitHubOAuth,
   queryClientTraffic,
@@ -1161,7 +1217,6 @@ exports = module.exports = {
   updateClient,
   verifyToken,
   initAction,
-  getConfigs,
   isDevEnv,
   getRandomIntInclusive,
   autoSetupSchedule,

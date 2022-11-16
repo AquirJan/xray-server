@@ -1,10 +1,8 @@
 const mysql = require('mysql');
 const path = require('path');
-const {
-  prod,
-  dev
-} = require(path.resolve('configs.js'))
-const logger = require('./logger');
+const logger = require('../src/logger.js');
+const { getCnf } = require('./util.js');
+
 let CONNECTION=undefined;
 
 let reConnectTimes = 0;
@@ -12,19 +10,27 @@ let reConnectTimes = 0;
 function connectDB(configs) {
   return new Promise(async (resolve, reject) => {
     try {
+      if (!configs) {
+        throw new Error('请传入连接数据库的配置参数')
+      }
       if (CONNECTION) {
         throw new Error('已有数据库连接')
       }
-      let dbSet = configs !== undefined ? configs : (process.env.NODE_ENV === 'production' ? prod.database : dev.database)
-      if (!dbSet) {
-        throw new Error('请传入数据库配置')
-      }
-      CONNECTION = mysql.createConnection(dbSet);
+      CONNECTION = mysql.createConnection(configs);
       CONNECTION.connect()
-      CONNECTION.on('error', function(err) {
+      CONNECTION.on('connect',()=>{
+        logger.info('连接数据库成功');
+        reConnectTimes = 0;
+        return resolve({
+          success: true,
+          message:  `连接数据库成功`
+        })
+      })
+      CONNECTION.on('error', (err) => {
         logger.info(err.code); // 'ER_BAD_DB_ERROR'
-        if(err.code === 'PROTOCOL_CONNECTION_LOST') {
+        if(['PROTOCOL_PACKETS_OUT_OF_ORDER', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'].includes(err.code)) {
           if (reConnectTimes < 3) {
+            logger.info(`reConnectTimes: ${reConnectTimes}`)
             reConnectTimes = reConnectTimes + 1;
             connectDB(configs); 
           } else {
@@ -34,11 +40,8 @@ function connectDB(configs) {
           throw err;
         }
       });
-      resolve({
-        success: true,
-        message:  `连接数据库成功`
-      })
     } catch(e) {
+      reConnectTimes = 0;
       logger.info(e.message);
       resolve({
         success: false,
@@ -53,7 +56,7 @@ function connectDB(configs) {
 function closeDB() {
   return new Promise(async (resolve, reject) => {
     try {
-      // console.log('创建数据库实例')
+      logger.info(`创建数据库实例`)
       if (!CONNECTION) {
         throw new Error('no db instance')
       }
@@ -64,7 +67,7 @@ function closeDB() {
         message:  `close database success`
       })
     } catch(e) {
-      // console.log('连接数据库出错', e)
+      logger.warn(`连接数据库出错: ${e.message}`)
       resolve({
         success: false,
         data: e,
@@ -78,13 +81,29 @@ function closeDB() {
 function queryPromise(_sql) {
   return new Promise((resolve, reject) => {
     try {
-      // console.log('请求数据')
       if (!CONNECTION) {
-        throw new Error('queryPromise : no db instance')
+        // throw new Error('queryPromise : no db instance')
+        const _configs = getCnf()
+        const _dbset = _configs.database
+        connectDB(_dbset);
       }
-      CONNECTION.query(_sql, function(err, rows, fields) {
-        if (err) {
-          throw err
+      CONNECTION.query(_sql, (err, rows, fields) =>{
+        if (err) {  
+          logger.info(err.code);
+          if(['PROTOCOL_PACKETS_OUT_OF_ORDER', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'].includes(err.code)) {
+            logger.info(`reConnectTimes: ${reConnectTimes}`)
+            if (reConnectTimes < 3) {
+              reConnectTimes = reConnectTimes + 1;
+              closeDB()
+              const _configs = getCnf()
+              const _dbset = _configs.database
+              connectDB(_dbset);
+            } else {
+              throw new Error(`超出最大重连数据库次数`);
+            }
+          } else {                                      
+            throw new Error(err.code+": "+err.sqlMessage)
+          }
         }
         return resolve({
           success: true,
@@ -93,9 +112,7 @@ function queryPromise(_sql) {
         })
       });
     } catch(e) {
-      console.dir(e)
-      console.log(e.message)
-      logger.info(e.message);
+      logger.warn(e.message);
       return resolve({
         success: false,
         data: e,

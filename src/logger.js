@@ -1,7 +1,6 @@
 const path = require('path')
 const fs = require('fs')
-const LOGFOLDER = 'logs'
-const logsFolder = path.resolve(LOGFOLDER)
+const logsFolder = path.resolve(global.LOGFOLDER)
 if (fs.existsSync(logsFolder)) {
     fs.mkdirSync(logsFolder, {recursive: true})
 }
@@ -12,6 +11,17 @@ const opts = {
     fileNamePattern:'<DATE>.log',
     dateFormat:'YYYY-MM-DD'
 }
-const logger = require('simple-node-logger').createRollingFileLogger(opts)
+const _logger = require('simple-node-logger').createRollingFileLogger(opts)
+
+const logger = {
+    info: function(logs){
+        console.log(logs)
+        _logger.info(logs)
+    },
+    warn: function(logs){
+        console.warn(logs)
+        _logger.warn(logs)
+    }
+}
 
 module.exports = logger;
