@@ -51,10 +51,6 @@ const axios = require('axios')
 
 const logger = require('./logger.js');
 
-const {
-  dev,
-  prod
-} = require('../configs.js');
 const { getCnf } = require('./util');
 // const LOGFOLDER = 'logs'
 let scheduleJobList = {}
