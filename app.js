@@ -58,9 +58,12 @@ const {
 const {
     initAction,
     autoSetupSchedule,
-    setDailySchedule
+    setDailySchedule,
+    isDevEnv
 } = require('./src/service');
 const { getCnf } = require('./src/util');
+const { deleteNginxPort, deleteNginxApi, modifyNginx } = require('./src/modifyNginxService');
+const logger = require('./src/logger');
 const PROJECTNAME = '/xray'
 
 app.post(`${PROJECTNAME}/login`, loginCtl)
@@ -83,13 +86,14 @@ app.post(`${PROJECTNAME}/OAuthLoginCtl`, OAuthLoginCtl)
 const _configs = getCnf()
 app.listen(_configs.port, () => console.log(`Example app listening on port ${_configs.port}!`))
 
-// const logger = setupLogger()
 initAction().then(res=>{
     const {success, message} = res;
-    console.log(message)
+    // console.log(message)
+    logger.info(message)
     if (success) {
         setDailySchedule()
         autoSetupSchedule()
     }
 });
-    
+
+// modifyNginx({isdev: isDevEnv(), port: 3874, api:'/kjekjf'})

@@ -56,8 +56,7 @@ const {
   prod
 } = require('../configs.js');
 const { getCnf } = require('./util');
-let mailerTransporter = undefined;
-const LOGFOLDER = 'logs'
+// const LOGFOLDER = 'logs'
 let scheduleJobList = {}
 
 function isDevEnv() {
@@ -72,12 +71,6 @@ function initAction() {
       message: ''
     }
     try {
-      // initMailer()
-      // 每日任务
-      // schedule.scheduleJob('0 0 9 * * *', ()=>{
-      //   logger.info('每日任务')
-      //   autoDeleteLog()
-      // });
       autoDeleteLog()
       // console.log('连接数据库')
       const _configs = getCnf();
@@ -149,14 +142,14 @@ function execCommand(command) {
 }
 
 function getRandomIntInclusive(min, max) {
-    min = Math.ceil(min);
-    max = Math.floor(max);
-    return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1) + min); //The maximum is inclusive and the minimum is inclusive
 }
 
 function autoDeleteLog() {
   logger.info(`执行删除日志文件任务`)
-  const logFolder = path.resolve(LOGFOLDER)
+  const logFolder = path.resolve(global.LOGFOLDER)
   if (fs.existsSync(logFolder) && fs.statSync(logFolder) && fs.statSync(logFolder).isDirectory()) {
     const _files = fs.readdirSync(logFolder)
     if (_files.length) {
@@ -664,6 +657,7 @@ function restartService(params) {
       if (!_res_recombine.success) {
         throw new Error(`${_res_recombine.message}`)
       }
+      
       if (params) {
         const {email, id, remainTraffic} = params;
         const _res_resetTraffic = await resetTraffic({email, id, remainTraffic})
@@ -677,8 +671,17 @@ function restartService(params) {
         if (!_res_changeConfig.success) {
           throw new Error(`覆盖xray配置文件失败`)
         }
+        const _cpNginxRes = await execCommand(`cp ./nginx_default /etc/nginx/sites-available/default`)
+        if (!_cpNginxRes.success) {
+          throw new Error(`重启nginx失败，${_cpNginxRes.message}`)
+        }
+        const _restartNginxRes = await execCommand(`nginx -s reload`)
+        if (!_restartNginxRes.success) {
+          throw new Error(`重启nginx失败，${_restartNginxRes.message}`)
+        }
         const _res = await execCommand(`systemctl restart xray`)
         logger.info(`重启xray服务结果：${_res.success?'成功': '失败'}, ${_res.message}`)
+        
         return resolve(_res)
       } else {
         logger.info('开发环境，重启服务成功')
@@ -1170,6 +1173,10 @@ function mailBackups(){
           {   // file on disk as an attachment
             filename: 'xray-config_backup.json',
             path: path.resolve('xray-config_backup.json') // stream this file
+          },
+          {   // file on disk as an attachment
+            filename: 'nginx_default_backup',
+            path: path.resolve('nginx_default_backup') // stream this file
           }
         ]
       };

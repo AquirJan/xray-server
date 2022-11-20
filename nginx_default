@@ -1,0 +1,36 @@
+server {
+	listen 80 default_server;
+	listen [::]:80 default_server;
+  server_name bang.samojum.ml;
+  index index.html index.php index.htm;
+ 
+  return 301 https://$server_name$request_uri;
+}
+
+server {
+  
+	root /var/www;
+	# Add index.php to the list if you are using PHP
+	index index.html index.htm index.nginx-debian.html;
+  server_name bang.samojum.ml; # managed by Certbot
+
+  location / {
+    alias /var/www/html/;
+    index index.html index.htm;
+	}
+
+	location /xrayweb {
+    alias /var/www/xrayweb/;
+    index index.html index.htm;
+		try_files $uri $uri/ /xrayweb/index.html;
+	}
+
+  # listen [::]:443 ssl ipv6only=on; # managed by Certbot
+  # listen 443 ssl; # managed by Certbot
+  
+  ssl_certificate /etc/letsencrypt/live/bang.samojum.ml/fullchain.pem; # managed by Certbot
+  ssl_certificate_key /etc/letsencrypt/live/bang.samojum.ml/privkey.pem; # managed by Certbot
+  include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+}

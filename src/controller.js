@@ -1,4 +1,6 @@
 const ENV = process.env.NODE_ENV;
+const { modifyNginx, deleteNginxPort, deleteNginxApi } = require('./modifyNginxService.js');
+const { queryPromise } = require('./mysql.js');
 const {
   login,
   listClients,
@@ -7,7 +9,6 @@ const {
   addClient,
   verifyToken,
   detectDuplicateAccount,
-  isDevEnv,
   statisticTraffic,
   resetTraffic,
   restartService,
@@ -22,6 +23,7 @@ const {
   dailySchedule,
   queryClientTraffic,
   gitHubOAuth,
+  isDevEnv,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -43,9 +45,9 @@ async function loginCtl(req, res) {
 }
 
 async function verifyTokenMiddle(req, res, next) {
-  // if (isDevEnv()){
-  //   next()
-  // } else {
+  if (isDevEnv()){
+    next()
+  } else {
     const token = req.headers.token;
     const _res = await verifyToken(token)
     if (_res.success) {
@@ -53,7 +55,7 @@ async function verifyTokenMiddle(req, res, next) {
     } else {
       res.send(_res)
     }
-  // }
+  }
 }
 
 async function listClientsCtl(req, res) {
@@ -71,7 +73,6 @@ async function listClientsCtl(req, res) {
 async function putClientCtl(req, res) {
   const {id, email, uuid, price, off_date, port, remark, traffic, timezone, api} = req.body
   // const _now = new Date()
-  const _port = port ? port : 443;
   const _price = price ? price : 20;
   const _traffic = traffic ? traffic : 20;
   let _timezoneDirect = Number(timezone) > 0 ? '+' : '-'
@@ -109,9 +110,9 @@ async function putClientCtl(req, res) {
     success: false,
     message: 'default response'
   }
-  const _obj = {email, uuid, remark, price: _price, off_date: _off_date, port: _port,  traffic: _traffic, api}
+  const _obj = {email, uuid, remark, price: _price, off_date: _off_date, port,  traffic: _traffic, api}
   let _ddaRes = await detectDuplicateAccount({id, email, uuid, port})
-  // console.log(_ddaRes)
+  // console.log(_obj)
   if (_ddaRes.data && _ddaRes.data.length) {
     res.send({
       success: false,
@@ -119,23 +120,82 @@ async function putClientCtl(req, res) {
     })
     return;
   }
+  
   if (id) {
+    let _client = await queryPromise(`select * from clients where id=${id}`)
+    _client = _client?.data?.[0]
+    // console.log(_client)
+    if (!_client) {
+      res.send({
+        success: false,
+        message: `update client miss id param`
+      })
+    }
+    const _delPortRes = await deleteNginxPort(_client.port)
+    // console.log(_delPortRes.message)
+    if (!_delPortRes.success){
+      res.send({
+        success: false,
+        message: `updateClient Error: ${_delPortRes.message}`
+      })
+    }
+    const _delApiRes = await deleteNginxApi(_client.api)
+    // console.log(_delApiRes.message)
+    if (!_delApiRes.success){
+      res.send({
+        success: false,
+        message: `updateClient Error: ${_delApiRes.message}`
+      })
+    }
+    const _setupNingxRes = await modifyNginx({port: _obj.port, api: _obj.api, isdev: isDevEnv()})
+    if (!_setupNingxRes.success) {
+      res.send({
+        success: false,
+        message: `updateClient Error: ${_setupNingxRes.message}`
+      })
+    }
     _obj['id'] = id;
     let _updateRes = await updateClient(_obj);
+    _res['success'] = _updateRes.success
     _res['message'] = _updateRes.success ? '更新成功' : `更新失败: ${_updateRes.message}`
   } else {
+    const _setupNingxRes = await modifyNginx({port: _obj.port, api: _obj.api, isdev: isDevEnv()})
+    if (!_setupNingxRes.success) {
+      res.send({
+        success: false,
+        message: `addClient Error: ${_setupNingxRes.message}`
+      })
+    }
     let _addRes = await addClient(_obj);
+    _res['success'] = _addRes.success
     _res['message'] = _addRes.success ? '添加成功' : `添加失败: ${_addRes.message}`
   }
+  
   res.send(_res)
 }
 
 async function deleteClientCtl(req, res) {
-  const {id, email} = req.body;
+  const {id, email, port, api} = req.body;
   if (!id) {
     res.send({
       success: false,
       message: '请输传入id'
+    })
+  }
+  const _delPortRes = await deleteNginxPort(Number(port))
+  // console.log(_delPortRes)
+  if (!_delPortRes.success){
+    res.send({
+      success: false,
+      message: `deleteClient Error: ${_delPortRes.message}`
+    })
+  }
+  const _delApiRes = await deleteNginxApi(api)
+  // console.log(_delApiRes)
+  if (!_delApiRes.success){
+    res.send({
+      success: false,
+      message: `deleteClient Error: ${_delApiRes.message}`
     })
   }
   const _res = await deleteClient({id, email});

@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+const logger = require('./logger');
 exports = module.exports = {
   cryptPwd(password) {
     const md5 = crypto.createHash('md5');
@@ -55,6 +57,7 @@ exports = module.exports = {
     }
     return str;
   },
+  
   // formatDate(date, fmt) { //author: meizz 
   //   var o = {
   //     "M+": date.getMonth() + 1, //月份 
