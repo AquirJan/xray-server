@@ -302,20 +302,26 @@ async function deleteUserCtl(req, res) {
 }
 
 async function genQrcodeCtl(req, res) {
-  const { email } = req.body;
+  const { email, api, port } = req.body;
   if (!email) {
     res.send({
       success: false,
       message: '请传入email'
     })
   }
-  // if (!platform) {
-  //   res.send({
-  //     success: false,
-  //     message: '请传入平台参数 platform'
-  //   })
-  // }
-  const _res = await genQrcode({email})
+  if (!api) {
+    res.send({
+      success: false,
+      message: '请传入api'
+    })
+  }
+  if (!port) {
+    res.send({
+      success: false,
+      message: '请传入port'
+    })
+  }
+  const _res = await genQrcode({email, api, port})
   res.send(_res)
 }
 

@@ -62,7 +62,7 @@ const {
     isDevEnv
 } = require('./src/service');
 const { getCnf } = require('./src/util');
-const { deleteNginxPort, deleteNginxApi, modifyNginx } = require('./src/modifyNginxService');
+const { deleteNginxPort, deleteNginxApi, modifyNginx, setNginxApi, setNginxPort } = require('./src/modifyNginxService');
 const logger = require('./src/logger');
 const PROJECTNAME = '/xray'
 
@@ -96,4 +96,4 @@ initAction().then(res=>{
     }
 });
 
-// modifyNginx({isdev: isDevEnv(), port: 3874, api:'/kjekjf'})
+// modifyNginx({isdev: isDevEnv(), port: 3874, api:'/kjekujf'})

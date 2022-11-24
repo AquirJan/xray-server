@@ -1,1 +1,84 @@
-{"log":{"loglevel":"warning"},"inbounds":[{"port":3300,"listen":"127.0.0.1","protocol":"vless","settings":{"clients":[{"id":"69ec7580-6875-11ed-8fba-0d21fa1ac6b1","level":0,"flow":"xtls-rprx-direct","email":"wing.free0@gmail.com"}],"decryption":"none"},"streamSettings":{"network":"ws","security":"none","wsSettings":{"path":"/ekj"}}},{"listen":"127.0.0.1","port":10088,"protocol":"dokodemo-door","settings":{"address":"127.0.0.1"},"tag":"api"}],"outbounds":[{"protocol":"freedom"}],"routing":{"settings":{"rules":[{"inboundTag":["api"],"outboundTag":"api","type":"field"}]},"strategy":"rules"},"stats":{},"api":{"tag":"api","services":["StatsService"]},"policy":{"levels":{"0":{"handshake":4,"connIdle":100,"uplinkOnly":2,"downlinkOnly":5,"statsUserUplink":true,"statsUserDownlink":true,"bufferSize":4}},"system":{"statsInboundUplink":true,"statsInboundDownlink":true,"statsOutboundUplink":true,"statsOutboundDownlink":true}}}
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "port": 3300,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "69ec7580-6875-11ed-8fba-0d21fa1ac6b1",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "wing.free0@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/ekj"
+        }
+      }
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10088,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      },
+      "tag": "api"
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom"
+    }
+  ],
+  "routing": {
+    "settings": {
+      "rules": [
+        {
+          "inboundTag": [
+            "api"
+          ],
+          "outboundTag": "api",
+          "type": "field"
+        }
+      ]
+    },
+    "strategy": "rules"
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": [
+      "StatsService"
+    ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 4,
+        "connIdle": 100,
+        "uplinkOnly": 2,
+        "downlinkOnly": 5,
+        "statsUserUplink": true,
+        "statsUserDownlink": true,
+        "bufferSize": 4
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  }
+}

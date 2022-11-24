@@ -8,29 +8,59 @@ server {
 }
 
 server {
-  
-	root /var/www;
+	
 	# Add index.php to the list if you are using PHP
-	index index.html index.htm index.nginx-debian.html;
+	# index index.html index.htm index.nginx-debian.html;
+	# Add index.php to the list if you are using PHP
+	# index index.html index.htm index.nginx-debian.html;
   server_name bang.samojum.ml; # managed by Certbot
-
-  location / {
-    alias /var/www/html/;
-    index index.html index.htm;
+	location / {
+		root   /var/www/xrayweb;
+		index  index.html index.htm;
+		try_files $uri $uri/ /index.html;
 	}
-
-	location /xrayweb {
-    alias /var/www/xrayweb/;
-    index index.html index.htm;
-		try_files $uri $uri/ /xrayweb/index.html;
+  location /xray {
+	  proxy_pass http://127.0.0.1:8686;
+  }
+  location /web3 {
+		proxy_pass http://127.0.0.1:3300;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
 	}
+	listen 500 ssl;
+	listen 501 ssl;
+	listen 502 ssl;
+	listen 503 ssl;
+	listen 504 ssl;
+	listen 505 ssl;
+	listen 506 ssl;
+	listen 507 ssl;
+	listen 508 ssl;
+	listen 509 ssl;
+	listen 510 ssl;
+	listen 511 ssl;
+	listen 512 ssl;
+	listen 513 ssl;
+	listen 514 ssl;
+	listen 515 ssl;
 
-  # listen [::]:443 ssl ipv6only=on; # managed by Certbot
-  # listen 443 ssl; # managed by Certbot
-  
-  ssl_certificate /etc/letsencrypt/live/bang.samojum.ml/fullchain.pem; # managed by Certbot
-  ssl_certificate_key /etc/letsencrypt/live/bang.samojum.ml/privkey.pem; # managed by Certbot
-  include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
-  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+	# listen [::]:443 ssl ipv6only=on; # managed by Certbot
+	# listen 443 ssl; # managed by Certbot
+	location /estk {
+		proxy_pass http://127.0.0.1:2052;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1052 ssl;
+	ssl_certificate /etc/letsencrypt/live/bang.samojum.ml/fullchain.pem; # managed by Certbot
+	ssl_certificate_key /etc/letsencrypt/live/bang.samojum.ml/privkey.pem; # managed by Certbot
+	include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 
 }

@@ -95,16 +95,15 @@ function deleteNginxApi(api){
     }
   })
 }
-function setNginxApi(api){
+function setNginxApi(api, xrayPort){
   return new Promise(resolve=>{
     try {
-      if (!api) {
-        logger.info(`setNginxApi Error: miss api param`)
-        throw new Error(`setNginxApi Error: miss api param`)
+      if (!api || api.constructor!==String) {
+        throw new Error(`miss api param or constructor Error excepted String`)
       }
-      if (api.constructor!==String){
-        logger.info(`setNginxApi Error: api param constructor Error`)
-        throw new Error(`setNginxApi Error: api param constructor Error`)
+      console.log(xrayPort)
+      if (!xrayPort || xrayPort.constructor!==Number) {
+        throw new Error(`miss xrayPort param or constructor Error excepted Number`)
       }
       let _contentArray = fs.readFileSync(path.resolve('nginx_default'), 'utf-8')
       _contentArray = _contentArray.split(/\r|\n/gi);
@@ -132,8 +131,8 @@ function setNginxApi(api){
       if (_insertIndex === undefined){
         throw new Error(`miss _insertIndex`)
       }
-      let _apiContents = `\tlocation ${api} {\n\t\tproxy_pass http://127.0.0.1:3300;\n\t\tproxy_redirect off;\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade $http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\t\tproxy_set_header Host $http_host;\n\t}`
-      _contentArray.splice((_insertIndex-1), 0, _apiContents);
+      let _apiContents = `\tlocation ${api} {\n\t\tproxy_pass http://127.0.0.1:${xrayPort};\n\t\tproxy_redirect off;\n\t\tproxy_http_version 1.1;\n\t\tproxy_set_header Upgrade $http_upgrade;\n\t\tproxy_set_header Connection "upgrade";\n\t\tproxy_set_header Host $http_host;\n\t}`
+      _contentArray.splice(_insertIndex, 0, _apiContents);
       _contentArray = _contentArray.join('\n')
       // fs.copyFileSync(path.resolve('nginx_default'), path.resolve(`nginx_default_backup_${new Date().format('yyyy-MM-dd')}`))
       fs.writeFileSync(path.resolve('nginx_default'), _contentArray, 'utf-8')
@@ -142,6 +141,7 @@ function setNginxApi(api){
         message: `setNginxApi Success`
       })
     } catch(error) {
+      logger.info(`setNginxApi Error: ${error.message}`)
       return resolve({
         success: false,
         error: true,
@@ -190,7 +190,7 @@ function setNginxPort(port){
       if (_insertIndex === undefined){
         throw new Error(`miss _insertIndex`)
       }
-      _contentArray.splice(_insertIndex-1, 0, `\tlisten ${port} ssl;`)
+      _contentArray.splice(_insertIndex, 0, `\tlisten ${port} ssl;`)
       _contentArray = _contentArray.join('\n')
       // console.log(_contentArray)
       // fs.copyFileSync(path.resolve('nginx_default'), path.resolve(`nginx_default_backup_${new Date().format('yyyy-MM-dd')}`))
@@ -216,25 +216,16 @@ function modifyNginx({port, api, isdev=true}={}){
         fs.copyFileSync(path.resolve('/etc/nginx/sites-available/default'), path.resolve(`nginx_default`))
         fs.copyFileSync(path.resolve('/etc/nginx/sites-available/default'), path.resolve(`nginx_default_backup`))
       }
-      // const _delPortRes = await deleteNginxPort(port)
-      // if (!_delPortRes.success){
-      //   throw new Error(_delPortRes.message)
-      // }
-      // const _deleteApiRes = await deleteNginxApi(api)
-      // if (!_deleteApiRes.success){
-      //   throw new Error(_deleteApiRes.message)
-      // }
+      const _setApiRes = await setNginxApi(api, (port+1000))
+      // console.log(`modifyNginx: ${_setApiRes.message}`)
+      if (!_setApiRes.success){
+        throw new Error(_setApiRes.message)
+      }
       const _setPortRes = await setNginxPort(port)
       // console.log(`modifyNginx: ${_setPortRes.message}`)
       if (!_setPortRes.success){
         throw new Error(_setPortRes.message)
       }
-      const _setApiRes = await setNginxApi(api)
-      // console.log(`modifyNginx: ${_setApiRes.message}`)
-      if (!_setApiRes.success){
-        throw new Error(_setApiRes.message)
-      }
-      
       // if (!isdev){
       //   fs.copyFileSync(path.resolve(`nginx_default`), path.resolve('/etc/nginx/sites-available/default'))
       // }
