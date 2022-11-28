@@ -663,20 +663,39 @@ function restartService(params) {
       }
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp ./xray-config.json /usr/local/etc/xray/config.json`)
-        logger.info(`覆盖xray配置文件${_res_changeConfig.success?'成功':'失败'}`)
+        logger.info(`更新xray配置文件${_res_changeConfig.success?'成功':'失败'}`)
         if (!_res_changeConfig.success) {
-          throw new Error(`覆盖xray配置文件失败`)
+          throw new Error(`更新xray配置文件失败`)
         }
         const _cpNginxRes = await execCommand(`cp ./nginx_default /etc/nginx/sites-available/default`)
         if (!_cpNginxRes.success) {
-          throw new Error(`重启nginx失败，${_cpNginxRes.message}`)
+          throw new Error(`更新nginx失败，${_cpNginxRes.message}`)
         }
-        const _restartNginxRes = await execCommand(`nginx -s reload`)
-        if (!_restartNginxRes.success) {
-          throw new Error(`重启nginx失败，${_restartNginxRes.message}`)
-        }
-        const _res = await execCommand(`systemctl restart xray`)
-        logger.info(`重启xray服务结果：${_res.success?'成功': '失败'}, ${_res.message}`)
+        setTimeout(()=>{
+          logger.info(`执行重启xray和nginx`)
+          execCommand(`nginx -s reload`).then(_restartNginxRes=>{
+            if (!_restartNginxRes.success) {
+              logger.info(`重启nginx失败，${_restartNginxRes.message}`)
+              sendMailMessage(`重启nginx失败，${_restartNginxRes.message}`)
+            } else {
+              logger.info(`重启nginx成功`)
+            }
+          })
+          execCommand(`systemctl restart xray`).then(_restartXrayRes=>{
+            if (!_restartXrayRes.success) {
+              logger.info(`重启xray失败，${_restartXrayRes.message}`)
+              sendMailMessage(`重启xray失败，${_restartXrayRes.message}`)
+            } else {
+              logger.info(`重启xray成功`)
+            }
+          })
+        }, 3*1000)
+        // const _restartNginxRes = await execCommand(`nginx -s reload`)
+        // if (!_restartNginxRes.success) {
+        //   throw new Error(`重启nginx失败，${_restartNginxRes.message}`)
+        // }
+        // const _res = await execCommand(`systemctl restart xray`)
+        // logger.info(`重启xray服务结果：${_res.success?'成功': '失败'}, ${_res.message}`)
         
         return resolve(_res)
       } else {
@@ -1146,16 +1165,68 @@ function gitHubOAuth({code}) {
   })
 }
 
+function sendMailMessage(text){
+  return new Promise(resolve=>{
+    try {
+      if (!global.nodeMailer) {
+        global.nodeMailer = nodemailer.createTransport({
+          service : 'hotmail',
+          auth : {
+            user : 'samojum@outlook.com',
+            pass : 'Aquir.239'
+          }
+        });
+      }
+      
+      const mailOptions = {
+        from: 'samojum@outlook.com',
+        to: 'aquirjan@icloud.com',
+        subject: 'mail info Node.js by xray-server',
+        text: text,
+      };
+      if (!global.nodeMailer) {
+        throw new Error('miss global.nodeMailer')
+      }
+      global.nodeMailer.sendMail(mailOptions, function(error, info){
+        if (error) {
+          return resolve({
+            success: false,
+            error: true,
+            data: error,
+            message: `sendMailMessage Failure: ${error.message}`
+          })
+        } else {
+          return resolve({
+            success: true,
+            message: `sendMailMessage Success: ${info.response}`
+          })
+        }
+      });
+    } catch(error){
+      logger.info(`sendMailMessage Error: ${error.message}`)
+      return resolve({
+        success: false,
+        error: true,
+        data: error,
+        message: `sendMailMessage Error: ${error.message}`
+      })
+    }
+  })
+  
+}
+
 function mailBackups(){
   return new Promise(resolve=>{
     try {
-      const transporter = nodemailer.createTransport({
-        service : 'hotmail',
-        auth : {
-          user : 'samojum@outlook.com',
-          pass : 'Aquir.239'
-        }
-      });
+      if (!global.nodeMailer) {
+        global.nodeMailer = nodemailer.createTransport({
+          service : 'hotmail',
+          auth : {
+            user : 'samojum@outlook.com',
+            pass : 'Aquir.239'
+          }
+        });
+      }
       const mailOptions = {
         from: 'samojum@outlook.com',
         to: 'aquirjan@icloud.com',
@@ -1176,8 +1247,10 @@ function mailBackups(){
           }
         ]
       };
-      
-      transporter.sendMail(mailOptions, function(error, info){
+      if (!global.nodeMailer) {
+        throw new Error('miss global.nodeMailer')
+      }
+      global.nodeMailer.sendMail(mailOptions, function(error, info){
         if (error) {
           return resolve({
             success: false,

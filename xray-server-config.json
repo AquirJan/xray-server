@@ -1,0 +1,245 @@
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "inbounds": [
+    {
+      "port": 2584,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "5322aea0-0e39-11ed-90c3-893b1b9391d3",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "temp@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/web3x"
+        }
+      }
+    },
+    {
+      "port": 2852,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "6db4c6e0-6b90-11ed-a319-dd41fd7bcaad",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "wing.free0@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/samoAdmin"
+        }
+      }
+    },
+    {
+      "port": 2917,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "ea3d52e0-6b95-11ed-8285-0131565a2123",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "taohaiyong@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/requestRainf"
+        }
+      }
+    },
+    {
+      "port": 2112,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "d5e4c700-6b96-11ed-8285-0131565a2123",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "zk@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/zkPubs"
+        }
+      }
+    },
+    {
+      "port": 2795,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "c80ef2d0-6b97-11ed-8285-0131565a2123",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "rice@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/riceUploade"
+        }
+      }
+    },
+    {
+      "port": 2236,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "7c735e50-6b98-11ed-8285-0131565a2123",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "zhijian@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/beAuth"
+        }
+      }
+    },
+    {
+      "port": 2632,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "4d64ada0-6b9b-11ed-9b17-d7939cf5398c",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "disheng@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/fifa"
+        }
+      }
+    },
+    {
+      "port": 2508,
+      "listen": "127.0.0.1",
+      "protocol": "vless",
+      "settings": {
+        "clients": [
+          {
+            "id": "0c164650-6b9c-11ed-9b17-d7939cf5398c",
+            "level": 0,
+            "flow": "xtls-rprx-direct",
+            "email": "xianheng@gmail.com"
+          }
+        ],
+        "decryption": "none"
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/swiming"
+        }
+      }
+    },
+    {
+      "listen": "127.0.0.1",
+      "port": 10088,
+      "protocol": "dokodemo-door",
+      "settings": {
+        "address": "127.0.0.1"
+      },
+      "tag": "api"
+    }
+  ],
+  "outbounds": [
+    {
+      "protocol": "freedom"
+    }
+  ],
+  "routing": {
+    "settings": {
+      "rules": [
+        {
+          "inboundTag": [
+            "api"
+          ],
+          "outboundTag": "api",
+          "type": "field"
+        }
+      ]
+    },
+    "strategy": "rules"
+  },
+  "stats": {},
+  "api": {
+    "tag": "api",
+    "services": [
+      "StatsService"
+    ]
+  },
+  "policy": {
+    "levels": {
+      "0": {
+        "handshake": 4,
+        "connIdle": 100,
+        "uplinkOnly": 2,
+        "downlinkOnly": 5,
+        "statsUserUplink": true,
+        "statsUserDownlink": true,
+        "bufferSize": 4
+      }
+    },
+    "system": {
+      "statsInboundUplink": true,
+      "statsInboundDownlink": true,
+      "statsOutboundUplink": true,
+      "statsOutboundDownlink": true
+    }
+  }
+}

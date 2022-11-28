@@ -14,22 +14,14 @@ server {
 	# Add index.php to the list if you are using PHP
 	# index index.html index.htm index.nginx-debian.html;
   server_name bang.samojum.ml; # managed by Certbot
-	location / {
-		root   /var/www/xrayweb;
-		index  index.html index.htm;
-		try_files $uri $uri/ /index.html;
-	}
+location / {
+            root   /var/www/xrayweb;
+            index  index.html index.htm;
+            try_files $uri $uri/ /index.html;
+        }
   location /xray {
 	  proxy_pass http://127.0.0.1:8686;
   }
-  location /web3 {
-		proxy_pass http://127.0.0.1:3300;
-		proxy_redirect off;
-		proxy_http_version 1.1;
-		proxy_set_header Upgrade $http_upgrade;
-		proxy_set_header Connection "upgrade";
-		proxy_set_header Host $http_host;
-	}
 	listen 500 ssl;
 	listen 501 ssl;
 	listen 502 ssl;
@@ -49,6 +41,59 @@ server {
 
 	# listen [::]:443 ssl ipv6only=on; # managed by Certbot
 	# listen 443 ssl; # managed by Certbot
+	location /web3 {
+		proxy_pass http://127.0.0.1:2584;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1584 ssl;
+	location /samoAdmin {
+		proxy_pass http://127.0.0.1:2852;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1852 ssl;
+	location /beAuth {
+		proxy_pass http://127.0.0.1:2236;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1236 ssl;
+	location /requestRainf {
+		proxy_pass http://127.0.0.1:2917;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	location /swiming {
+		proxy_pass http://127.0.0.1:2508;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1508 ssl;
+	location /web3x {
+		proxy_pass http://127.0.0.1:2584;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_set_header Host $http_host;
+	}
+	listen 1917 ssl;
 	ssl_certificate /etc/letsencrypt/live/bang.samojum.ml/fullchain.pem; # managed by Certbot
 	ssl_certificate_key /etc/letsencrypt/live/bang.samojum.ml/privkey.pem; # managed by Certbot
 	include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot

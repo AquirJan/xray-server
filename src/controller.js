@@ -128,26 +128,10 @@ async function putClientCtl(req, res) {
     if (!_client) {
       res.send({
         success: false,
-        message: `update client miss id param`
+        message: `cannot find out client of id [${id}]`
       })
     }
-    const _delPortRes = await deleteNginxPort(_client.port)
-    // console.log(_delPortRes.message)
-    if (!_delPortRes.success){
-      res.send({
-        success: false,
-        message: `updateClient Error: ${_delPortRes.message}`
-      })
-    }
-    const _delApiRes = await deleteNginxApi(_client.api)
-    // console.log(_delApiRes.message)
-    if (!_delApiRes.success){
-      res.send({
-        success: false,
-        message: `updateClient Error: ${_delApiRes.message}`
-      })
-    }
-    const _setupNingxRes = await modifyNginx({port: _obj.port, api: _obj.api, isdev: isDevEnv()})
+    const _setupNingxRes = await modifyNginx({oldPort: _client.port, oldApi: _client.api, port: _obj.port, api: _obj.api, isdev: isDevEnv()})
     if (!_setupNingxRes.success) {
       res.send({
         success: false,

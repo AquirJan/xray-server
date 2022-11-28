@@ -209,12 +209,22 @@ function setNginxPort(port){
     }
   })
 }
-function modifyNginx({port, api, isdev=true}={}){
+function modifyNginx({oldPort, oldApi, port, api, isdev=true}={}){
   return new Promise(async resolve=>{
     try {
       if (!isdev){
         fs.copyFileSync(path.resolve('/etc/nginx/sites-available/default'), path.resolve(`nginx_default`))
         fs.copyFileSync(path.resolve('/etc/nginx/sites-available/default'), path.resolve(`nginx_default_backup`))
+      }
+      const _delPortRes = await deleteNginxPort(oldPort)
+      // console.log(_delPortRes.message)
+      if (!_delPortRes.success){
+        throw new Error(`deleteNginxPort Error: ${_delPortRes.message}`)
+      }
+      const _delApiRes = await deleteNginxApi(oldApi)
+      // console.log(_delApiRes.message)
+      if (!_delApiRes.success){
+        throw new Error(`deleteNginxApi Error: ${_delApiRes.message}`)
       }
       const _setApiRes = await setNginxApi(api, (port+1000))
       // console.log(`modifyNginx: ${_setApiRes.message}`)
