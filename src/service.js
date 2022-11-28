@@ -697,7 +697,10 @@ function restartService(params) {
         // const _res = await execCommand(`systemctl restart xray`)
         // logger.info(`重启xray服务结果：${_res.success?'成功': '失败'}, ${_res.message}`)
         
-        return resolve(_res)
+        return resolve({
+          success: true,
+          message: `重启服务完成`
+        })
       } else {
         logger.info('开发环境，重启服务成功')
         resolve({
