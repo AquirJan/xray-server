@@ -469,6 +469,9 @@ function findOutValidClient() {
         logger.info(`_current_emails: ${_current_emails}`)
         logger.info(`_valid_emails: ${_valid_emails}`)
         let _isSame = _current_emails === _valid_emails;
+        // if (!_isSame) {
+        //   fs.writeFileSync(path.resolve(`current-clients.json`), _valid_emails, {encoding: 'utf-8'})
+        // }
         resolve({
           success: true,
           data: _valid_emails,
@@ -909,7 +912,8 @@ function recombineConfigFile(email) {
       let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
       _configObj = JSON.parse(_configObj)
       _configObj.inbounds = [..._clients, ..._configObj.inbounds]
-      const _currentClientContent = JSON.stringify(_clients.map(val=>val.email).sort().join(','));
+      const _currentClientContent = data.map(val=>val.email).sort().join(',');
+      // console.log(_currentClientContent)
       fs.writeFileSync(path.resolve(`current-clients.json`), _currentClientContent, {encoding: 'utf-8'})
       fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
       _result.success = true;
