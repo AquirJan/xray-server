@@ -1043,7 +1043,8 @@ function genQrcode({email, api, port}) {
       })
     }
     const _client = data[0]
-    let _config = `vless://${_client.uuid}@bang.samojum.ml:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=${api.replace(/\//gi, '%2f')}#${_client.email}`
+    const _configs = getCnf();
+    let _config = `vless://${_client.uuid}@${_configs.hostname}:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=${api.replace(/\//gi, '%2f')}#${_client.email}`
     QRCode.toDataURL(_config)
     .then(url => {
       resolve({
@@ -1234,11 +1235,12 @@ function mailBackups(){
           }
         });
       }
+      const _config = getCnf()
       const mailOptions = {
         from: 'samojum@outlook.com',
         to: 'aquirjan@icloud.com',
-        subject: 'Sending Email using Node.js by xray-server',
-        text: 'Backup files',
+        subject: `Sending Email using Node.js by xray-server from ${_config.hostname}`,
+        text: 'Backup files\n',
         attachments: [
           {   // file on disk as an attachment
             filename: 'vpndb_backup.sql',

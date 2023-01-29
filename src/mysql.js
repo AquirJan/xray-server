@@ -4,7 +4,7 @@ const logger = require('../src/logger.js');
 const { getCnf } = require('./util.js');
 
 let CONNECTION=undefined;
-
+let connecting = false;
 let reConnectTimes = 0;
 
 function connectDB(configs) {
@@ -16,9 +16,11 @@ function connectDB(configs) {
       if (CONNECTION) {
         throw new Error('已有数据库连接')
       }
+      connecting = true;
       CONNECTION = mysql.createConnection(configs);
       CONNECTION.connect()
       CONNECTION.on('connect',()=>{
+        connecting = false;
         logger.info('连接数据库成功');
         reConnectTimes = 0;
         return resolve({
@@ -26,10 +28,13 @@ function connectDB(configs) {
           message:  `连接数据库成功`
         })
       })
-      CONNECTION.on('error', (err) => {
+      CONNECTION.on('error', async (err) => {
         logger.info(err.code); // 'ER_BAD_DB_ERROR'
-        if(['PROTOCOL_PACKETS_OUT_OF_ORDER', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'].includes(err.code)) {
-          if (reConnectTimes < 3) {
+        connecting = false;
+        // if(['PROTOCOL_PACKETS_OUT_OF_ORDER', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'].includes(err.code)) {
+        if(err.code) {
+          await closeDB()
+          if (reConnectTimes < 3 && !connecting) {
             logger.info(`reConnectTimes: ${reConnectTimes}`)
             reConnectTimes = reConnectTimes + 1;
             connectDB(configs); 
@@ -41,6 +46,7 @@ function connectDB(configs) {
         }
       });
     } catch(e) {
+      connecting = false;
       reConnectTimes = 0;
       logger.info(e.message);
       resolve({
@@ -92,7 +98,7 @@ function queryPromise(_sql) {
           logger.info(err.code);
           if(['PROTOCOL_PACKETS_OUT_OF_ORDER', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR'].includes(err.code)) {
             logger.info(`reConnectTimes: ${reConnectTimes}`)
-            if (reConnectTimes < 3) {
+            if (reConnectTimes < 3 && !connecting) {
               reConnectTimes = reConnectTimes + 1;
               closeDB()
               const _configs = getCnf()

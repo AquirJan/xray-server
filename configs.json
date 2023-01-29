@@ -1,6 +1,7 @@
 {
   "development": {
     "godAcount": "aquirjan",
+    "hostname":"www.samojum.ml",
     "database": {
       "host": "localhost",
       "user": "aquirjan",
@@ -12,6 +13,7 @@
   },
   "production": {
     "godAcount": "aquirjan",
+    "hostname":"www.samojum.ml",
     "database": {
       "host": "127.0.0.1",
       "user": "aquirjan",
