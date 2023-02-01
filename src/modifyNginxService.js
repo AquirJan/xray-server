@@ -101,7 +101,7 @@ function setNginxApi(api, xrayPort){
       if (!api || api.constructor!==String) {
         throw new Error(`miss api param or constructor Error excepted String`)
       }
-      console.log(xrayPort)
+      // console.log(xrayPort)
       if (!xrayPort || xrayPort.constructor!==Number) {
         throw new Error(`miss xrayPort param or constructor Error excepted Number`)
       }
