@@ -252,7 +252,7 @@ function modifyNginx({oldPort, oldApi, port, api, isdev=true}={}){
         message: `modifyNginx Success`
       })
     } catch(error) {
-      console.dir(error)
+      // console.dir(error)
       return resolve({
         success: false,
         error: true,

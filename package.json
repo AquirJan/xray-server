@@ -29,7 +29,10 @@
   "license": "ISC",
   "pkg": {
     "scripts": "app.js",
-    "targets": [ "node18-linux-x64", "node18-macos-arm64" ],
+    "targets": [
+      "node18-linux-x64",
+      "node18-macos-arm64"
+    ],
     "outputPath": "dist"
   }
 }

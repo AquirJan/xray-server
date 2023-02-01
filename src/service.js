@@ -52,6 +52,7 @@ const axios = require('axios')
 const logger = require('./logger.js');
 
 const { getCnf } = require('./util');
+const { modifyNginx } = require('./modifyNginxService');
 // const LOGFOLDER = 'logs'
 let scheduleJobList = {}
 
@@ -644,6 +645,36 @@ function resetTraffic({email, id, remainTraffic=0}) {
   })
 }
 
+function recombineNginxFile(client_list=[]){
+  logger.info('重组nginx配置文件')
+  return new Promise(async resolve=>{
+    try {
+      if (!client_list) {
+        throw new Error('miss client_list param')
+      }
+      if (!client_list.length) {
+        return resolve({
+          success: true,
+          message: '没有需要重组的nginx配置'
+        })
+      }
+      for await (let item of client_list){
+        const _res = await modifyNginx({port: item.port, api: item.api, isdev: isDevEnv()})
+        if (!_res.success) {
+          throw new Error(`${_res.message}`)
+        }
+      }
+    } catch(error){
+      return resolve({
+        success: false,
+        error: true,
+        data: error,
+        message: `recombineNginxFile Error: ${error.message}`
+      })
+    }
+  })
+}
+
 function restartService(params) {
   return new Promise(async resolve => {
     try {
@@ -656,6 +687,10 @@ function restartService(params) {
       if (!_res_recombine.success) {
         throw new Error(`${_res_recombine.message}`)
       }
+      const _res_recombineNginx = await recombineNginxFile(_res_recombine?.client_list??[])
+      if (!_res_recombineNginx.success) {
+        throw new Error(`${_res_recombineNginx.message}`)
+      }
       
       if (params) {
         const {email, id, remainTraffic} = params;
@@ -664,6 +699,7 @@ function restartService(params) {
           throw new Error(`${_res_resetTraffic.message}`)
         }
       }
+      
       if (!isDevEnv()) {
         const _res_changeConfig = await execCommand(`cp ./xray-config.json /usr/local/etc/xray/config.json`)
         logger.info(`更新xray配置文件${_res_changeConfig.success?'成功':'失败'}`)
@@ -768,11 +804,11 @@ function dailySchedule() {
       if (!_res_backupConfigFile.success) {
         throw new Error(`${_res_backupConfigFile.message}`)
       }
-      logger.info(`dailySchedule 邮件发送备份数据`)
-      const _res_mailbackups = await mailBackups()
-      if (!_res_mailbackups.success) {
-        throw new Error(`${_res_mailbackups.message}`)
-      }
+      // logger.info(`dailySchedule 邮件发送备份数据`)
+      // const _res_mailbackups = await mailBackups()
+      // if (!_res_mailbackups.success) {
+      //   throw new Error(`${_res_mailbackups.message}`)
+      // }
       return resolve({
         success: true,
         message: '每日任务执行成功'
@@ -917,6 +953,12 @@ function recombineConfigFile(email) {
       fs.writeFileSync(path.resolve(`current-clients.json`), _currentClientContent, {encoding: 'utf-8'})
       fs.writeFileSync(path.resolve(`xray-config.json`), JSON.stringify(_configObj), {encoding: 'utf-8'})
       _result.success = true;
+      _result['client_list'] = data.map(val=>{
+        return {
+          api: val.api,
+          port: val.port
+        }
+      });
       _result.message = '重组配置文件成功';
       return resolve(_result)
     } catch(err) {
@@ -1176,40 +1218,44 @@ function gitHubOAuth({code}) {
 function sendMailMessage(text){
   return new Promise(resolve=>{
     try {
-      if (!global.nodeMailer) {
-        global.nodeMailer = nodemailer.createTransport({
-          service : 'hotmail',
-          auth : {
-            user : 'samojum@outlook.com',
-            pass : 'Aquir.239'
-          }
-        });
-      }
+      // if (!global.nodeMailer) {
+      //   global.nodeMailer = nodemailer.createTransport({
+      //     service : 'hotmail',
+      //     auth : {
+      //       user : 'samojum@outlook.com',
+      //       pass : 'Aquir.239'
+      //     }
+      //   });
+      // }
       
-      const mailOptions = {
-        from: 'samojum@outlook.com',
-        to: 'aquirjan@icloud.com',
-        subject: 'mail info Node.js by xray-server',
-        text: text,
-      };
-      if (!global.nodeMailer) {
-        throw new Error('miss global.nodeMailer')
-      }
-      global.nodeMailer.sendMail(mailOptions, function(error, info){
-        if (error) {
-          return resolve({
-            success: false,
-            error: true,
-            data: error,
-            message: `sendMailMessage Failure: ${error.message}`
-          })
-        } else {
-          return resolve({
-            success: true,
-            message: `sendMailMessage Success: ${info.response}`
-          })
-        }
-      });
+      // const mailOptions = {
+      //   from: 'samojum@outlook.com',
+      //   to: 'aquirjan@icloud.com',
+      //   subject: 'mail info Node.js by xray-server',
+      //   text: text,
+      // };
+      // if (!global.nodeMailer) {
+      //   throw new Error('miss global.nodeMailer')
+      // }
+      // global.nodeMailer.sendMail(mailOptions, function(error, info){
+      //   if (error) {
+      //     return resolve({
+      //       success: false,
+      //       error: true,
+      //       data: error,
+      //       message: `sendMailMessage Failure: ${error.message}`
+      //     })
+      //   } else {
+      //     return resolve({
+      //       success: true,
+      //       message: `sendMailMessage Success: ${info.response}`
+      //     })
+      //   }
+      // });
+      return resolve({
+              success: true,
+              message: `sendMailMessage Success: `
+            })
     } catch(error){
       logger.info(`sendMailMessage Error: ${error.message}`)
       return resolve({
