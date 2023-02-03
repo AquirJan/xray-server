@@ -821,11 +821,11 @@ function dailySchedule() {
       if (!_res_backupConfigFile.success) {
         throw new Error(`${_res_backupConfigFile.message}`)
       }
-      // logger.info(`dailySchedule 邮件发送备份数据`)
-      // const _res_mailbackups = await mailBackups()
-      // if (!_res_mailbackups.success) {
-      //   throw new Error(`${_res_mailbackups.message}`)
-      // }
+      logger.info(`dailySchedule 邮件发送备份数据`)
+      const _res_mailbackups = await mailBackups()
+      if (!_res_mailbackups.success) {
+        throw new Error(`${_res_mailbackups.message}`)
+      }
       return resolve({
         success: true,
         message: '每日任务执行成功'
@@ -1287,56 +1287,66 @@ function sendMailMessage(text){
 }
 
 function mailBackups(){
-  return new Promise(resolve=>{
+  return new Promise(async resolve=>{
     try {
-      if (!global.nodeMailer) {
-        global.nodeMailer = nodemailer.createTransport({
-          service : 'hotmail',
-          auth : {
-            user : 'samojum@outlook.com',
-            pass : 'Aquir.239'
-          }
-        });
-      }
       const _config = getCnf()
-      const mailOptions = {
-        from: 'samojum@outlook.com',
-        to: 'aquirjan@icloud.com',
-        subject: `Sending Email using Node.js by xray-server from ${_config.hostname}`,
-        text: 'Backup files\n',
-        attachments: [
-          {   // file on disk as an attachment
-            filename: 'vpndb_backup.sql',
-            path: path.resolve('vpndb_backup.sql') // stream this file
-          },
-          {   // file on disk as an attachment
-            filename: 'xray-config_backup.json',
-            path: path.resolve('xray-config_backup.json') // stream this file
-          },
-          {   // file on disk as an attachment
-            filename: 'nginx_default_backup',
-            path: path.resolve('nginx_default_backup') // stream this file
-          }
-        ]
-      };
-      if (!global.nodeMailer) {
-        throw new Error('miss global.nodeMailer')
+      const _content = `${_config.hostname} xray-server backup at ${new Date().utcFormat(`yyyy/MM/dd`)}`
+      const _res = await execCommand(`echo "${_content}" | mail -s "${_config.hostname} backup" -A ${path.resolve('vpndb_backup.sql')} -A ${path.resolve('xray-config_backup.json')} -A ${path.resolve('nginx_default_backup')} ${_config.backupToEmail}`)
+      if (!_res.success) {
+        throw new Error(_res.message)
       }
-      global.nodeMailer.sendMail(mailOptions, function(error, info){
-        if (error) {
-          return resolve({
-            success: false,
-            error: true,
-            data: error,
-            message: `mailBackups Failure: ${error.message}`
-          })
-        } else {
-          return resolve({
-            success: true,
-            message: `mailBackups Success: ${info.response}`
-          })
-        }
-      });
+      return resolve({
+        success: true,
+        message: `邮件备份关键数据成功`
+      })
+      // if (!global.nodeMailer) {
+      //   global.nodeMailer = nodemailer.createTransport({
+      //     service : 'hotmail',
+      //     auth : {
+      //       user : 'samojum@outlook.com',
+      //       pass : 'Aquir.239'
+      //     }
+      //   });
+      // }
+      // const _config = getCnf()
+      // const mailOptions = {
+      //   from: 'samojum@outlook.com',
+      //   to: 'aquirjan@icloud.com',
+      //   subject: `Sending Email using Node.js by xray-server from ${_config.hostname}`,
+      //   text: 'Backup files\n',
+      //   attachments: [
+      //     {   // file on disk as an attachment
+      //       filename: 'vpndb_backup.sql',
+      //       path: path.resolve('vpndb_backup.sql') // stream this file
+      //     },
+      //     {   // file on disk as an attachment
+      //       filename: 'xray-config_backup.json',
+      //       path: path.resolve('xray-config_backup.json') // stream this file
+      //     },
+      //     {   // file on disk as an attachment
+      //       filename: 'nginx_default_backup',
+      //       path: path.resolve('nginx_default_backup') // stream this file
+      //     }
+      //   ]
+      // };
+      // if (!global.nodeMailer) {
+      //   throw new Error('miss global.nodeMailer')
+      // }
+      // global.nodeMailer.sendMail(mailOptions, function(error, info){
+      //   if (error) {
+      //     return resolve({
+      //       success: false,
+      //       error: true,
+      //       data: error,
+      //       message: `mailBackups Failure: ${error.message}`
+      //     })
+      //   } else {
+      //     return resolve({
+      //       success: true,
+      //       message: `mailBackups Success: ${info.response}`
+      //     })
+      //   }
+      // });
     } catch(error){
       logger.info(`mailBackups Error: ${error.message}`)
       return resolve({
