@@ -24,6 +24,7 @@ const {
   queryClientTraffic,
   gitHubOAuth,
   isDevEnv,
+  mailBackups,
 } = require('./service.js')
 
 async function loginCtl(req, res) {
@@ -335,7 +336,14 @@ async function OAuthLoginCtl(req, res) {
   }
 }
 
+async function mailForBackupCtl(req, res) {
+  const {type, code} = req?.body || {}
+  const _res = await mailBackups()
+  res.send(_res)
+}
+
 exports = module.exports = {
+  mailForBackupCtl,
   dailyScheduleCtl,
   OAuthLoginCtl,
   queryClientTrafficCtl,

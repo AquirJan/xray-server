@@ -1291,7 +1291,9 @@ function mailBackups(){
     try {
       const _config = getCnf()
       const _content = `${_config.hostname} xray-server backup at ${new Date().utcFormat(`yyyy/MM/dd`)}`
-      const _res = await execCommand(`echo "${_content}" | mail -s "${_config.hostname} backup" -A ${path.resolve('vpndb_backup.sql')} -A ${path.resolve('xray-config_backup.json')} -A ${path.resolve('nginx_default_backup')} ${_config.backupToEmail}`)
+      const _command_line = `echo "${_content}" | mail -s "${_config.hostname} backup" -A ${path.resolve('vpndb_backup.sql')} -A ${path.resolve('xray-config_backup.json')} -A ${path.resolve('nginx_default_backup')} ${_config.backupToEmail}`
+      // logger.info(_command_line)
+      const _res = await execCommand(_command_line)
       if (!_res.success) {
         throw new Error(_res.message)
       }
@@ -1361,6 +1363,7 @@ function mailBackups(){
 }
 
 exports = module.exports = {
+  mailBackups,
   gitHubOAuth,
   queryClientTraffic,
   genQrcode,

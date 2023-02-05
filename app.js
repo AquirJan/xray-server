@@ -53,7 +53,8 @@ const {
     genQrcodeCtl,
     queryClientTrafficCtl,
     OAuthLoginCtl,
-    dailyScheduleCtl
+    dailyScheduleCtl,
+    mailForBackupCtl
 } = require('./src/controller')
 const {
     initAction,
@@ -81,6 +82,7 @@ app.post(`${PROJECTNAME}/updateUser`, verifyTokenMiddle, putUserCtl)
 app.post(`${PROJECTNAME}/deleteUser`, verifyTokenMiddle, deleteUserCtl)
 app.post(`${PROJECTNAME}/genQrcode`, verifyTokenMiddle, genQrcodeCtl)
 app.post(`${PROJECTNAME}/dailySchedule`, dailyScheduleCtl)
+app.post(`${PROJECTNAME}/mailForBackup`, mailForBackupCtl)
 app.post(`${PROJECTNAME}/testAction`, testActionCtl)
 app.post(`${PROJECTNAME}/OAuthLoginCtl`, OAuthLoginCtl)
 
