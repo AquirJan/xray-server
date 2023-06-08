@@ -1,3 +1,14 @@
+# server {
+# 	listen 501 default_server;
+# 	listen [::]:501 default_server;
+
+#   server_name www.samojum.ml;
+# 	location /kidcaremjpg {
+# 		alias   /var/www/kidcaremjpg-web;
+# 		index  index.html index.htm;
+# 	}
+# }
+
 server {
 	listen 80 default_server;
 	listen [::]:80 default_server;
@@ -20,8 +31,19 @@ server {
 		index  index.html index.htm;
 		try_files $uri $uri/ /index.html;
 	}
+	location /kidcaremjpg {
+		alias   /var/www/kidcaremjpg-web;
+		index  index_ssl.html index_ssl.htm;
+	}
   location /xray {
 	  proxy_pass http://127.0.0.1:8686;
+  }
+	location /kidcarewss {
+	  proxy_pass http://127.0.0.1:8002;
+		proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "Upgrade";
+    proxy_set_header X-Real-IP $remote_addr;
   }
 	listen 500 ssl;
 
