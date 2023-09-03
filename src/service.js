@@ -704,10 +704,10 @@ function restartService(params) {
         throw new Error(`${_res_recombine.message}`)
       }
       console.log(_res_recombine.client_list)
-      const _res_recombineNginx = await recombineNginxFile(_res_recombine?.client_list??[])
-      if (!_res_recombineNginx.success) {
-        throw new Error(`${_res_recombineNginx.message}`)
-      }
+      // const _res_recombineNginx = await recombineNginxFile(_res_recombine?.client_list??[])
+      // if (!_res_recombineNginx.success) {
+      //   throw new Error(`${_res_recombineNginx.message}`)
+      // }
       
       if (params) {
         const {email, id, remainTraffic} = params;
@@ -723,10 +723,10 @@ function restartService(params) {
         if (!_res_changeConfig.success) {
           throw new Error(`更新xray配置文件失败`)
         }
-        const _cpNginxRes = await execCommand(`cp ./nginx_default /etc/nginx/sites-available/default`)
-        if (!_cpNginxRes.success) {
-          throw new Error(`更新nginx失败，${_cpNginxRes.message}`)
-        }
+        // const _cpNginxRes = await execCommand(`cp ./nginx_default /etc/nginx/sites-available/default`)
+        // if (!_cpNginxRes.success) {
+        //   throw new Error(`更新nginx失败，${_cpNginxRes.message}`)
+        // }
         setTimeout(()=>{
           logger.info(`执行重启xray和nginx`)
           execCommand(`nginx -s reload`).then(_restartNginxRes=>{
@@ -939,32 +939,32 @@ function recombineConfigFile(email) {
       }
       let _clients = data.map(val => {
         return {
-          "port": val.port+1000,
-          "listen": "127.0.0.1",
-          "protocol": "vless",
-          "settings": {
-              "clients": [
-                {
-                  "id": val.uuid,
-                  "level": 0,
-                  "flow": "xtls-rprx-direct",
-                  "email": val.email
-                }
-              ],
-              "decryption": "none"
-          },
-          "streamSettings": {
-              "network": "ws",
-              "security": "none",
-              "wsSettings": {
-                "path": val.api
-              }
-          }
+          "id": val.uuid,
+          "level": 0,
+          "flow": "xtls-rprx-direct",
+          "email": val.email
         }
       })
+      let _inbound = [{
+        "port": 2188,
+        "listen": "127.0.0.1",
+        "protocol": "vless",
+        "settings": {
+            "clients": _clients,
+            "decryption": "none"
+        },
+        "streamSettings": {
+            "network": "ws",
+            "security": "none",
+            "wsSettings": {
+              // "host": "www.samojum.ml",
+              "path": '/samocat'
+            }
+        }
+      }]
       let _configObj = fs.readFileSync(_tplConfig, {encoding:'utf-8'})
       _configObj = JSON.parse(_configObj)
-      _configObj.inbounds = [..._clients, ..._configObj.inbounds]
+      _configObj.inbounds = [..._inbound, ..._configObj.inbounds]
       const _currentClientContent = data.map(val=>val.email).sort().join(',');
       // console.log(_currentClientContent)
       fs.writeFileSync(path.resolve(`current-clients.json`), _currentClientContent, {encoding: 'utf-8'})
@@ -1103,7 +1103,8 @@ function genQrcode({email, api, port}) {
     }
     const _client = data[0]
     const _configs = getCnf();
-    let _config = `vless://${_client.uuid}@${_configs.hostname}:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=${api.replace(/\//gi, '%2f')}#${_client.email}`
+    // let _config = `vless://${_client.uuid}@${_configs.hostname}:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=${api.replace(/\//gi, '%2f')}#${_client.email}`
+    let _config = `vless://${_client.uuid}@${_configs.hostname}:443?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&host=www.samojum.ml&path=%2fsamocat#${_client.email}`
     QRCode.toDataURL(_config)
     .then(url => {
       resolve({
