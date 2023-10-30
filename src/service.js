@@ -72,13 +72,14 @@ function initAction() {
       // console.log('连接数据库')
       const _configs = getCnf();
       const _dbset = _configs.database
-      // console.log(_dbset)
+      console.log(_dbset)
       const _fdbset = {
         host: _dbset.host,
         user: _dbset.user,
         password: _dbset.password,
         port: _dbset.port
       };
+      console.log(_fdbset)
       await connectDB(_fdbset)
       const _cdbres = await queryPromise(CREATEDBSQL)
       logger.info(`执行自动创建数据库${_cdbres.success?'成功':"失败:"+_cdbres.message}`)
@@ -645,51 +646,51 @@ function resetTraffic({email, id, remainTraffic=0}) {
   })
 }
 
-function recombineNginxFile(client_list=[]){
-  logger.info('重组nginx配置文件')
-  return new Promise(async resolve=>{
-    try {
-      if (!client_list) {
-        throw new Error('miss client_list param')
-      }
-      if (!client_list.length) {
-        return resolve({
-          success: true,
-          message: '没有需要重组的nginx配置'
-        })
-      }
-      fs.cpSync(path.resolve('nginx_default_origin'), path.resolve('nginx_default'))
-      for await (let item of client_list){
-        console.log(item)
-        const _setApiRes = await setNginxApi(item.api, (item.port+1000))
-        // console.log(`modifyNginx: ${_setApiRes.message}`)
-        if (!_setApiRes.success){
-          throw new Error(_setApiRes.message)
-        }
-        const _setPortRes = await setNginxPort(item.port)
-        // console.log(`modifyNginx: ${_setPortRes.message}`)
-        if (!_setPortRes.success){
-          throw new Error(_setPortRes.message)
-        }
-        // const _res = await modifyNginx({port: item.port, api: item.api, isdev: isDevEnv()})
-        // if (!_res.success) {
-        //   throw new Error(`${_res.message}`)
-        // }
-      }
-      return resolve({
-        success: true,
-        message: '重组nginx配置文件完成'
-      })
-    } catch(error){
-      return resolve({
-        success: false,
-        error: true,
-        data: error,
-        message: `recombineNginxFile Error: ${error.message}`
-      })
-    }
-  })
-}
+// function recombineNginxFile(client_list=[]){
+//   logger.info('重组nginx配置文件')
+//   return new Promise(async resolve=>{
+//     try {
+//       if (!client_list) {
+//         throw new Error('miss client_list param')
+//       }
+//       if (!client_list.length) {
+//         return resolve({
+//           success: true,
+//           message: '没有需要重组的nginx配置'
+//         })
+//       }
+//       fs.cpSync(path.resolve('nginx_default_origin'), path.resolve('nginx_default'))
+//       for await (let item of client_list){
+//         console.log(item)
+//         const _setApiRes = await setNginxApi(item.api, (item.port+1000))
+//         // console.log(`modifyNginx: ${_setApiRes.message}`)
+//         if (!_setApiRes.success){
+//           throw new Error(_setApiRes.message)
+//         }
+//         const _setPortRes = await setNginxPort(item.port)
+//         // console.log(`modifyNginx: ${_setPortRes.message}`)
+//         if (!_setPortRes.success){
+//           throw new Error(_setPortRes.message)
+//         }
+//         // const _res = await modifyNginx({port: item.port, api: item.api, isdev: isDevEnv()})
+//         // if (!_res.success) {
+//         //   throw new Error(`${_res.message}`)
+//         // }
+//       }
+//       return resolve({
+//         success: true,
+//         message: '重组nginx配置文件完成'
+//       })
+//     } catch(error){
+//       return resolve({
+//         success: false,
+//         error: true,
+//         data: error,
+//         message: `recombineNginxFile Error: ${error.message}`
+//       })
+//     }
+//   })
+// }
 
 function restartService(params) {
   return new Promise(async resolve => {
@@ -728,15 +729,15 @@ function restartService(params) {
         //   throw new Error(`更新nginx失败，${_cpNginxRes.message}`)
         // }
         setTimeout(()=>{
-          logger.info(`执行重启xray和nginx`)
-          execCommand(`nginx -s reload`).then(_restartNginxRes=>{
-            if (!_restartNginxRes.success) {
-              logger.info(`重启nginx失败，${_restartNginxRes.message}`)
-              sendMailMessage(`重启nginx失败，${_restartNginxRes.message}`)
-            } else {
-              logger.info(`重启nginx成功`)
-            }
-          })
+          logger.info(`执行重启xray`)
+          // execCommand(`nginx -s reload`).then(_restartNginxRes=>{
+          //   if (!_restartNginxRes.success) {
+          //     logger.info(`重启nginx失败，${_restartNginxRes.message}`)
+          //     sendMailMessage(`重启nginx失败，${_restartNginxRes.message}`)
+          //   } else {
+          //     logger.info(`重启nginx成功`)
+          //   }
+          // })
           execCommand(`systemctl restart xray`).then(_restartXrayRes=>{
             if (!_restartXrayRes.success) {
               logger.info(`重启xray失败，${_restartXrayRes.message}`)
@@ -918,6 +919,7 @@ function recombineConfigFile(email) {
     }
     try {
       const _tplConfig = path.resolve('xray-config-template.json');
+      const _config = getCnf()
       if (!fs.existsSync(_tplConfig)) {
         logger.info(`配置模板文件丢失`)
         throw new Error(`配置模板文件丢失`)
@@ -945,6 +947,7 @@ function recombineConfigFile(email) {
           "email": val.email
         }
       })
+
       let _inbound = [{
         "port": 2188,
         "listen": "127.0.0.1",
@@ -957,7 +960,7 @@ function recombineConfigFile(email) {
             "network": "ws",
             "security": "none",
             "wsSettings": {
-              // "host": "www.samojum.ml",
+              "host": _config.hostname,
               "path": '/samocat'
             }
         }
@@ -1104,7 +1107,7 @@ function genQrcode({email, api, port}) {
     const _client = data[0]
     const _configs = getCnf();
     // let _config = `vless://${_client.uuid}@${_configs.hostname}:${_port}?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&path=${api.replace(/\//gi, '%2f')}#${_client.email}`
-    let _config = `vless://${_client.uuid}@${_configs.hostname}:443?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&host=www.samojum.ml&path=%2fsamocat#${_client.email}`
+    let _config = `vless://${_client.uuid}@${_configs.hostname}:443?flow=xtls-rprx-direct&encryption=none&security=tls&type=ws&host=${_configs.hostname}&path=%2fsamocat#${_client.email}`
     QRCode.toDataURL(_config)
     .then(url => {
       resolve({

@@ -1,7 +1,7 @@
 {
   "development": {
     "godAcount": "aquirjan",
-    "hostname":"www.samojum.ml",
+    "hostname":"www.samojum.top",
     "backupToEmail": "aquirjan@icloud.com",
     "database": {
       "host": "localhost",
@@ -14,10 +14,10 @@
   },
   "production": {
     "godAcount": "aquirjan",
-    "hostname":"www.samojum.ml",
+    "hostname":"www.samojum.top",
     "backupToEmail": "aquirjan@icloud.com",
     "database": {
-      "host": "127.0.0.1",
+      "host": "localhost",
       "user": "aquirjan",
       "password": "#kiWYn.36@kK",
       "database": "vpndb",
