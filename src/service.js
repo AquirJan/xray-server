@@ -827,6 +827,7 @@ function dailySchedule() {
       if (!_res_mailbackups.success) {
         throw new Error(`${_res_mailbackups.message}`)
       }
+      logger.info(`dailySchedule 邮件发送备份数据 res : ${_res_mailbackups?.message}`)
       return resolve({
         success: true,
         message: '每日任务执行成功'
@@ -1295,7 +1296,7 @@ function mailBackups(){
     try {
       const _config = getCnf()
       const _content = `${_config.hostname} xray-server backup at ${new Date().utcFormat(`yyyy/MM/dd`)}`
-      const _command_line = `echo "${_content}" | mail -s "${_config.hostname} backup" -A ${path.resolve('vpndb_backup.sql')} -A ${path.resolve('xray-config_backup.json')} -A ${path.resolve('nginx_default_backup')} ${_config.backupToEmail}`
+      const _command_line = `echo "${_content}" | mail -s "${_config.hostname} backup" -A ${path.resolve('vpndb_backup.sql')} -A ${path.resolve('xray-config_backup.json')} ${_config.backupToEmail}`
       // logger.info(_command_line)
       const _res = await execCommand(_command_line)
       if (!_res.success) {

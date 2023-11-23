@@ -2,7 +2,7 @@
   "development": {
     "godAcount": "aquirjan",
     "hostname":"www.samojum.top",
-    "backupToEmail": "aquirjan@icloud.com",
+    "backupToEmail": "samojum@outlook.com",
     "database": {
       "host": "localhost",
       "user": "aquirjan",
@@ -15,7 +15,7 @@
   "production": {
     "godAcount": "aquirjan",
     "hostname":"www.samojum.top",
-    "backupToEmail": "aquirjan@icloud.com",
+    "backupToEmail": "samojum@outlook.com",
     "database": {
       "host": "localhost",
       "user": "aquirjan",
