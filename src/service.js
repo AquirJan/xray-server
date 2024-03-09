@@ -646,52 +646,6 @@ function resetTraffic({email, id, remainTraffic=0}) {
   })
 }
 
-// function recombineNginxFile(client_list=[]){
-//   logger.info('重组nginx配置文件')
-//   return new Promise(async resolve=>{
-//     try {
-//       if (!client_list) {
-//         throw new Error('miss client_list param')
-//       }
-//       if (!client_list.length) {
-//         return resolve({
-//           success: true,
-//           message: '没有需要重组的nginx配置'
-//         })
-//       }
-//       fs.cpSync(path.resolve('nginx_default_origin'), path.resolve('nginx_default'))
-//       for await (let item of client_list){
-//         console.log(item)
-//         const _setApiRes = await setNginxApi(item.api, (item.port+1000))
-//         // console.log(`modifyNginx: ${_setApiRes.message}`)
-//         if (!_setApiRes.success){
-//           throw new Error(_setApiRes.message)
-//         }
-//         const _setPortRes = await setNginxPort(item.port)
-//         // console.log(`modifyNginx: ${_setPortRes.message}`)
-//         if (!_setPortRes.success){
-//           throw new Error(_setPortRes.message)
-//         }
-//         // const _res = await modifyNginx({port: item.port, api: item.api, isdev: isDevEnv()})
-//         // if (!_res.success) {
-//         //   throw new Error(`${_res.message}`)
-//         // }
-//       }
-//       return resolve({
-//         success: true,
-//         message: '重组nginx配置文件完成'
-//       })
-//     } catch(error){
-//       return resolve({
-//         success: false,
-//         error: true,
-//         data: error,
-//         message: `recombineNginxFile Error: ${error.message}`
-//       })
-//     }
-//   })
-// }
-
 function restartService(params) {
   return new Promise(async resolve => {
     try {
@@ -705,10 +659,6 @@ function restartService(params) {
         throw new Error(`${_res_recombine.message}`)
       }
       console.log(_res_recombine.client_list)
-      // const _res_recombineNginx = await recombineNginxFile(_res_recombine?.client_list??[])
-      // if (!_res_recombineNginx.success) {
-      //   throw new Error(`${_res_recombineNginx.message}`)
-      // }
       
       if (params) {
         const {email, id, remainTraffic} = params;
