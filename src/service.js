@@ -72,14 +72,14 @@ function initAction() {
       // console.log('连接数据库')
       const _configs = getCnf();
       const _dbset = _configs.database
-      console.log(_dbset)
+      // console.log(_dbset)
       const _fdbset = {
         host: _dbset.host,
         user: _dbset.user,
         password: _dbset.password,
         port: _dbset.port
       };
-      console.log(_fdbset)
+      // console.log(_fdbset)
       await connectDB(_fdbset)
       const _cdbres = await queryPromise(CREATEDBSQL)
       logger.info(`执行自动创建数据库${_cdbres.success?'成功':"失败:"+_cdbres.message}`)
@@ -658,7 +658,7 @@ function restartService(params) {
       if (!_res_recombine.success) {
         throw new Error(`${_res_recombine.message}`)
       }
-      console.log(_res_recombine.client_list)
+      console.log(_res_recombine)
       
       if (params) {
         const {email, id, remainTraffic} = params;
@@ -761,13 +761,13 @@ function dailySchedule() {
   return new Promise(async resolve => {
     try {
       if (!isDevEnv()){
-        logger.info(`备份数据库`)
+        logger.info(`dailySchedule 备份数据库`)
         const _res_backupDataBase = await backupDataBase()
         if (!_res_backupDataBase.success) {
           throw new Error(_res_backupDataBase.message)
         }
       }
-      logger.info(`备份配置文件`)
+      logger.info(`dailySchedule 备份配置文件`)
       const _res_backupConfigFile = await backupConfigFile()
       if (!_res_backupConfigFile.success) {
         throw new Error(`${_res_backupConfigFile.message}`)
@@ -894,7 +894,7 @@ function recombineConfigFile(email) {
         return {
           "id": val.uuid,
           "level": 0,
-          "flow": "xtls-rprx-direct",
+          // "flow": "xtls-rprx-direct",
           "email": val.email
         }
       })
@@ -926,8 +926,9 @@ function recombineConfigFile(email) {
       _result.success = true;
       _result['client_list'] = data.map(val=>{
         return {
-          api: val.api,
-          port: val.port
+          email: val.email,
+          // api: val.api,
+          // port: val.port
         }
       });
       _result.message = '重组配置文件成功';

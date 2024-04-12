@@ -4,6 +4,47 @@
     },
     "inbounds": [
         {
+            "listen": "0.0.0.0",
+            "port": 4433,
+            "protocol": "vless",
+            "settings": {
+                "clients": [
+                    {
+                        "id": "4c672cf0-a32d-11ee-85ef-79b521da3732",
+                        "flow": "xtls-rprx-vision"
+                    }
+                ],
+                "decryption": "none"
+            },
+            "streamSettings": {
+                "network": "tcp",
+                "security": "reality",
+                "realitySettings": {
+                    "show": false,
+                    "dest": "www.amazon.com:443",
+                    "xver": 0,
+                    "serverNames": [
+                        "www.amazon.com"
+                    ],
+                    "privateKey": "UP9M54LXzvJdeIp5ZH02crINBBfirmv3DQrurV_nun0",
+                    "minClientVer": "",
+                    "maxClientVer": "",
+                    "maxTimeDiff": 0,
+                    "shortIds": [
+                        ""
+                    ]
+                }
+            },
+            "sniffing": {
+                "enabled": true,
+                "destOverride": [
+                    "http",
+                    "tls",
+                    "quic"
+                ]
+            }
+        },
+        {
             "listen": "127.0.0.1",
             "port": 10088,
             "protocol": "dokodemo-door",
@@ -15,22 +56,31 @@
     ],
     "outbounds": [
         {
-            "protocol": "freedom"
+            "protocol": "freedom",
+            "tag": "direct"
+        },
+        {
+            "protocol": "blackhole",
+            "tag": "block"
         }
     ],
     "routing": {
-        "settings": {
-            "rules": [
-                {
-                    "inboundTag": [
-                        "api"
-                    ],
-                    "outboundTag": "api",
-                    "type": "field"
-                }
-            ]
-        },
-        "strategy": "rules"
+        "rules": [
+            {
+                "inboundTag": [
+                    "api"
+                ],
+                "outboundTag": "api",
+                "type": "field"
+            },
+            {
+                "type": "field",
+                "ip": [
+                    "geoip:private"
+                ],
+                "outboundTag": "block"
+            }
+        ]
     },
     "stats": {},
     "api": {

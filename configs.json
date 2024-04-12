@@ -5,8 +5,8 @@
     "backupToEmail": "samojum@outlook.com",
     "database": {
       "host": "localhost",
-      "user": "aquirjan",
-      "password": "Samojum.123456",
+      "user": "ubuntu",
+      "password": "kirby.@123",
       "database": "vpndb",
       "port": 3306
     },
